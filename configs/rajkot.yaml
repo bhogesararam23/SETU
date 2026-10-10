@@ -1,0 +1,71 @@
+# SETU site configuration - Rajkot, Gujarat
+#
+# This file is the only place a city enters the system. The instrument is
+# fixed; everything city-specific lives here or in action_table.yaml.
+
+site:
+  id: rajkot
+  label: Rajkot, Gujarat
+  team: Renovator
+  team_id: TM-6CEAA83E01F
+  theme: 2
+  # Urban-agglomeration centroid. Rounded to 4 dp on purpose: the Open-Meteo
+  # CAMS grid cell is ~0.1 deg, so sub-kilometre precision here would be
+  # spurious. Node offsets are added on top of this in grid.py.
+  latitude: 22.3039
+  longitude: 70.7962
+  elevation_m: 147
+  timezone: Asia/Kolkata
+
+pilot:
+  # 2.0 km x 2.0 km = 4 km^2, matching the deck's stated pilot extent.
+  extent_km: 2.0
+  spacing_m: 320
+  # spacing 320 m over 2000 m gives a 7x7 lattice = 49 candidate sites.
+  # 40 are instrumented; the remaining 9 are held out and never used to fit
+  # the calibration model, so calibration transfer can be scored honestly.
+  instrumented_nodes: 40
+  holdout_pattern: every_5th
+  # Bearing from north, used to orient the lattice so rows run with the
+  # prevailing monsoon/sea-breeze axis rather than with the compass.
+  rotation_deg: 0.0
+
+reference:
+  # Nearest CPCB continuous station at the time of writing. The adapter in
+  # src/setu/io/cpcb.py is real but the endpoint is unreachable from the
+  # development network; see docs/DATA_SOURCES.md. When it is reachable the
+  # station becomes the calibration target and CAMS drops to a backstop.
+  cpcb:
+    station: Mavdi
+    city: Rajkot
+    state: Gujarat
+  # Keyless backstop: CAMS ensemble via Open-Meteo, hourly.
+  model:
+    provider: open-meteo-air-quality
+    species: [pm2_5, pm10, carbon_monoxide, nitrogen_dioxide, ozone, dust]
+
+thresholds:
+  # India NAAQS, CPCB notification B-29016/20/90/PCI-L, 18 Nov 2009.
+  naaqs:
+    pm25_24h: 60
+    pm25_annual: 40
+    pm10_24h: 100
+    pm10_annual: 60
+  # Coarse fraction is not regulated directly; this is a working action
+  # threshold derived from the silt-load literature, documented in
+  # docs/VALIDATION_PROTOCOL.md rather than presented as a standard.
+  coarse_action_ugm3: 30
+  # WHO 2021 global air quality guidelines, quoted for contrast only.
+  who_2021:
+    pm25_annual: 5
+    pm25_24h: 15
+    pm10_annual: 15
+    pm10_24h: 45
+
+cadence:
+  # 5 min, not hourly: suppression on an arterial is effective for roughly
+  # 62 minutes (J. Environ. Sci., 2023, doi:10.1016/j.jes.2021.12.005), so an
+  # hourly network cannot observe the lever it is supposed to be pulling.
+  node_report_seconds: 300
+  ingest_minutes: 60
+  forecast_hours: [1, 3, 6]
