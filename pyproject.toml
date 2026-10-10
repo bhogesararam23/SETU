@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "setu-air"
+version = "0.1.0"
+description = "SETU - source-attributed, evidence-graded trigger for urban air quality"
+requires-python = ">=3.10"
+readme = "README.md"
+license = { text = "MIT" }
+dependencies = [
+    "requests>=2.31,<3",
+    "PyYAML>=6.0,<7",
+    "numpy>=1.26",
+    "scikit-learn>=1.4",
+]
+
+[project.optional-dependencies]
+serve = ["fastapi>=0.110,<1", "uvicorn>=0.27,<1"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+setu = "setu.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
