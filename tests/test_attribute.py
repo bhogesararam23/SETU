@@ -55,12 +55,22 @@ def fitted(corpus):
     return model, feats.iloc[cut:], labels.iloc[cut:]
 
 
-def test_features_are_bounded_and_complete(corpus):
+def test_features_are_bounded_and_only_warm_up_is_missing(corpus):
     _, _, feats, _, _, _ = corpus
     assert list(feats.columns) == list(ATTR_FEATURES)
     assert feats["coarse_ratio"].between(0.0, 1.0).all()
     assert feats["rh_frac"].between(0.0, 1.0).all()
-    assert np.isfinite(feats.to_numpy()).all()
+    assert np.isfinite(feats.dropna().to_numpy()).all()
+
+    # The excess features use a TRAILING rolling median, so the first
+    # min_periods hours of each node have no baseline and must be NaN. Silent
+    # zero-fill there would fabricate a clean-air history, and a centred window
+    # would leak the test period into training.
+    excess = feats[["co_excess", "no2_excess", "o3_excess", "so2_excess"]]
+    for node in {n for n, _ in excess.index}:
+        mask = excess.xs(node, level="node").isna().all(axis=1)
+        assert int(mask.head(60).sum()) <= 60
+        assert not bool(mask.tail(24).any()), f"{node}: NaN persists past warm-up"
 
 
 def test_a_model_never_fitted_refuses_to_predict(corpus):

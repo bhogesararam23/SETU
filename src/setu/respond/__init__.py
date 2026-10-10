@@ -8,6 +8,7 @@ from .engine import (
     Suppressed,
     coverage_fraction,
     dose_schedule,
+    roster_vs_triggered,
 )
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "Suppressed",
     "coverage_fraction",
     "dose_schedule",
+    "roster_vs_triggered",
 ]

@@ -61,7 +61,14 @@ PRIOR_BLEND = 0.5
 
 
 def _rolling_median_excess(series: pd.Series, window: int = 168) -> pd.Series:
-    base = series.rolling(window, min_periods=48, center=True).median()
+    """Excess over a TRAILING rolling median.
+
+    A centred window is the obvious choice and is wrong: it lets the baseline at
+    09:00 know what the concentration will be at 15:00, so a model fitted on the
+    first two-thirds is scored against features that already contain the test
+    period. Trailing keeps every feature computable at the moment it is reported.
+    """
+    base = series.rolling(window, min_periods=48).median()
     return (series - base).clip(lower=0.0)
 
 
@@ -121,13 +128,31 @@ class Attribution:
 class SourceClassifier:
     def __init__(self, signatures: Mapping[str, Signature],
                  blend: float = PRIOR_BLEND, random_state: int = 20261010,
-                 c_param: float = 1.0):
+                 c_param: float = 1.0,
+                 classes: Sequence[str] | None = None):
+        """`classes` restricts the fitted label set.
+
+        A short run over few nodes may never contain a rare source - a
+        twelve-day construction campaign does not appear in a 45-day window at
+        all if none of the sampled nodes sit near a site. Refusing to fit is
+        right for a validation run and wrong for a demo, so the caller can
+        narrow the class set instead; the priors are renormalised over what
+        remains and the exclusion is reported rather than hidden.
+        """
         if not 0.0 <= blend <= 1.0:
             raise ConfigError("blend must be in [0, 1]")
-        self.classes = tuple(sorted(signatures))
-        self.prior = np.array([signatures[c].prior_weight for c in self.classes])
-        if not np.isclose(self.prior.sum(), 1.0):
-            raise ConfigError("signature priors must sum to 1")
+        available = set(signatures)
+        chosen = tuple(sorted(classes)) if classes is not None else tuple(sorted(available))
+        missing = set(chosen) - available
+        if missing:
+            raise ConfigError(f"unknown sources requested: {sorted(missing)}")
+        self.classes = chosen
+        self.excluded = tuple(sorted(available - set(chosen)))
+        raw = np.array([signatures[c].prior_weight for c in self.classes])
+        total = float(raw.sum())
+        if total <= 0:
+            raise ConfigError("requested classes carry zero prior mass")
+        self.prior = raw / total
         self.actionable = np.array([signatures[c].actionable_locally
                                     for c in self.classes])
         self.blend = blend

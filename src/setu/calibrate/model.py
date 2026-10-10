@@ -82,7 +82,8 @@ class CalibrationModel:
     """Median plus two quantile gradient-boosted regressors."""
 
     def __init__(self, target: str = "pm25", features: Sequence[str] = FEATURES,
-                 random_state: int = 20261010, max_iter: int = 300):
+                 random_state: int = 20261010, max_iter: int = 300,
+                 min_train: int = 240):
         if target not in FEATURES + ("pm25", "pm10", "coarse"):
             raise CalibrationError(f"unusable calibration target {target!r}")
         self.target = target
@@ -90,6 +91,7 @@ class CalibrationModel:
         self.features = tuple(f for f in features if f != target)
         self.random_state = random_state
         self.max_iter = max_iter
+        self.min_train = min_train
         self._median: HistGradientBoostingRegressor | None = None
         self._lo: HistGradientBoostingRegressor | None = None
         self._hi: HistGradientBoostingRegressor | None = None
@@ -101,10 +103,10 @@ class CalibrationModel:
         y = pd.Series(reference, index=raw.index).reindex(raw.index).astype(float)
         keep = y.notna() & np.isfinite(X.to_numpy()).all(axis=1)
         X, y = X[keep], y[keep]
-        if len(y) < 240:
+        if len(y) < self.min_train:
             raise CalibrationError(
                 f"only {len(y)} usable co-located hours; refusing to fit a "
-                "300-tree ensemble on less than 240"
+                f"{self.max_iter}-tree ensemble on fewer than {self.min_train}"
             )
 
         def make(alpha: float | None = None) -> HistGradientBoostingRegressor:
@@ -195,40 +197,34 @@ def transfer_calibrate(target_raw: pd.DataFrame, donor_raw: pd.DataFrame,
         raise CalibrationError(
             f"only {len(common)} overlap hours; transfer needs at least 48"
         )
-    src = target_raw.loc[common, donor.target].astype(float).to_numpy()
-    dst = donor_raw.loc[common, donor.target].astype(float).to_numpy()
-    if np.std(src) < 1e-9:
-        raise CalibrationError("target raw channel is constant over the overlap")
 
-    slope, intercept = np.polyfit(src, dst, 1)
-    fitted = intercept + slope * src
-    ss_res = float(np.sum((dst - fitted) ** 2))
-    ss_tot = float(np.sum((dst - np.mean(dst)) ** 2))
+    # Learn a map from the target's raw channels to what the donor's calibrated
+    # model says the air actually is during the co-location window.
+    #
+    # The obvious shortcut - a linear channel-to-channel map, then reuse the
+    # donor's model - was implemented first and is wrong. It silently assumes
+    # both nodes are breathing the same mixture, so a node downwind of a kiln
+    # gets calibrated against a node beside a roundabout and finishes worse than
+    # its own uncorrected sensor. Measured on the twin: channel-to-channel
+    # transfer took MAE from 5.24 up to 10.17.
+    donor_value = donor.predict(donor_raw.loc[common])["value"]
+    y = donor_value.to_numpy()
+    if np.std(y) < 1e-9:
+        raise CalibrationError("donor calibrated output is constant over the overlap")
+
+    transferred = CalibrationModel(
+        target=donor.target, features=donor.features,
+        random_state=donor.random_state,
+        max_iter=min(150, donor.max_iter),
+        min_train=96,
+    ).fit(target_raw.loc[common], y)
+
+    fitted = transferred.predict(target_raw.loc[common])["value"].to_numpy()
+    ss_res = float(np.sum((y - fitted) ** 2))
+    ss_tot = float(np.sum((y - np.mean(y)) ** 2))
     diag = {
-        "slope": float(slope),
-        "intercept": float(intercept),
         "overlap_hours": int(len(common)),
         "r2": 1.0 - ss_res / ss_tot if ss_tot > 0 else float("nan"),
+        "method": "raw channels to donor calibrated output",
     }
-
-    class _Transferred:
-        """Wraps a donor model with the linear map applied first."""
-
-        def __init__(self, inner: CalibrationModel, a: float, b: float):
-            self.inner, self.a, self.b = inner, a, b
-            self.target = inner.target
-            self.features = inner.features
-            self.n_train = inner.n_train
-            self.is_fitted = True
-
-        def predict(self, raw: pd.DataFrame) -> pd.DataFrame:
-            shifted = raw.copy()
-            shifted[self.target] = self.b + self.a * raw[self.target].astype(float)
-            return self.inner.predict(shifted)
-
-        def evaluate(self, raw, reference, threshold=None, node="?"):
-            shifted = raw.copy()
-            shifted[self.target] = self.b + self.a * raw[self.target].astype(float)
-            return self.inner.evaluate(shifted, reference, threshold, node)
-
-    return _Transferred(donor, float(slope), float(intercept)), diag  # type: ignore[return-value]
+    return transferred, diag

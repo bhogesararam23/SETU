@@ -144,14 +144,45 @@ def test_transfer_refuses_a_window_too_short_to_trust():
         transfer_calibrate(t.raw(nodes[1]).iloc[:20], donor_raw.iloc[:20], donor)
 
 
-def test_a_constant_target_channel_cannot_be_transferred():
+def test_a_donor_with_no_variation_cannot_teach_anything():
+    """The guard is on the donor's calibrated output, not the target's channel.
+
+    An earlier version checked whether the target's raw PM2.5 was constant. That
+    was the wrong quantity: a dead target sensor is exactly the case transfer is
+    for, whereas a donor whose output never moves carries no information to
+    propagate.
+    """
     site = load_site("rajkot")
     df, _ = om.load_hourly(site, HttpCache(), past_days=60, forecast_days=0)
     nodes = grid.instrumented(grid.build_lattice(site))
     t = twin.DigitalTwin(df, nodes, site, twin.TwinConfig())
     donor_truth, donor_raw = t.truth(nodes[0]), t.raw(nodes[0])
     donor = CalibrationModel(target="pm25").fit(donor_truth, donor_truth["pm25"])
-    stuck = t.raw(nodes[1]).copy()
-    stuck["pm25"] = 0.0
+    flat_donor_raw = donor_raw.copy()
+    for col in FEATURES:
+        if col in flat_donor_raw:
+            flat_donor_raw[col] = 0.0
     with pytest.raises(CalibrationError, match="constant"):
-        transfer_calibrate(stuck.iloc[:200], donor_raw.iloc[:200], donor)
+        transfer_calibrate(t.raw(nodes[1]).iloc[:200], flat_donor_raw.iloc[:200],
+                           donor)
+
+
+def test_a_one_week_overlap_is_enough_to_transfer():
+    """Field reality: a crew co-locates for days, not months.
+
+    The full calibration model needs 240 hours, which would have made transfer
+    impossible on a 168-hour overlap. Transfer now fits a deliberately smaller
+    ensemble so the operationally realistic window is workable.
+    """
+    site = load_site("rajkot")
+    df, _ = om.load_hourly(site, HttpCache(), past_days=60, forecast_days=0)
+    nodes = grid.instrumented(grid.build_lattice(site))
+    t = twin.DigitalTwin(df, nodes, site, twin.TwinConfig())
+    donor_truth, donor_raw = t.truth(nodes[0]), t.raw(nodes[0])
+    donor = CalibrationModel(target="pm25").fit(donor_truth, donor_truth["pm25"])
+    target_raw = t.raw(nodes[1])
+    model, diag = transfer_calibrate(target_raw.iloc[:168], donor_raw.iloc[:168],
+                                     donor, overlap_hours=168)
+    assert diag["overlap_hours"] == 168
+    assert diag["method"].startswith("raw channels")
+    assert model.predict(target_raw.iloc[200:260])["value"].notna().all()
