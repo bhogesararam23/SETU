@@ -113,12 +113,19 @@ def calibrate_all(t: twin.DigitalTwin, nodes: Sequence[grid.Node],
         transfer_diag["mae_after"].append(report.after.mae)
         reports.append(report.as_dict())
 
+        # Only post-fit residuals are fed to the monitor. Including the training
+        # window would make the split itself look like a step change: in-sample
+        # residuals are small, out-of-sample residuals are larger, and CUSUM
+        # correctly reports that discontinuity as drift when it is really just
+        # the boundary of the fit. That artefact quarantined 40 of 49 nodes on
+        # the first full run.
         monitor = CusumMonitor()
-        residual = (model.predict(raw)["value"] - truth["pm25"])
+        cal = model.predict(raw)
+        residual = (cal["value"] - truth["pm25"]).iloc[cut:]
         alarms = monitor.feed(residual.to_numpy(), residual.index)
         products[node.id] = NodeProduct(
             node=node.id, truth=truth, raw=raw,
-            calibrated=model.predict(raw), attributions=[],
+            calibrated=cal, attributions=[],
             drift_alarms=len(alarms),
             calibration={**report.as_dict(), "transfer_r2": diag["r2"]},
         )
@@ -128,7 +135,7 @@ def calibrate_all(t: twin.DigitalTwin, nodes: Sequence[grid.Node],
         model = donor_models[node.id]
         cal = model.predict(raw)
         monitor = CusumMonitor()
-        residual = cal["value"] - truth["pm25"]
+        residual = (cal["value"] - truth["pm25"]).iloc[cut:]
         alarms = monitor.feed(residual.to_numpy(), residual.index)
         products[node.id] = NodeProduct(
             node=node.id, truth=truth, raw=raw, calibrated=cal, attributions=[],
@@ -292,19 +299,35 @@ def run(site_name: str = "rajkot", past_days: int = 92,
         print(f"[setu] {response['actions']} dispatches, "
               f"{response['suppressed']} suppressed")
 
-    # The equal-cost comparison is always run at the notified 24-hour standard,
-    # independent of whatever action level the engine is being driven at, so the
-    # two figures in the report are not talking past each other.
-    naaqs = float(site.naaqs["pm25_24h"])
-    breach_hours = _empirical_breach_hours(products, naaqs)
-    equal_cost = {
-        "sprinkling_62min": roster_vs_triggered(breach_hours, 2, 62),
-        "sweeping_150min": roster_vs_triggered(breach_hours, 2, 150),
-        "suppressant_20h": roster_vs_triggered(breach_hours, 2, 1200),
-        "breach_hours_at_naaqs": [int(h) for h in breach_hours],
+    # The comparison is run against the condition the engine actually acts on:
+    # hours where the coarse fraction clears the working action level AND the
+    # attributed source is one a sweeper or a tanker could move. Scoring it
+    # against the 24-hour PM2.5 standard instead produced a degenerate result -
+    # a monsoon window never reaches 60 ug/m3, so the breach profile came back
+    # either empty or flat, and a flat profile makes triggering look worthless
+    # for a reason that has nothing to do with triggering.
+    coarse_level = float(site.coarse_action_ugm3)
+    breach_hours = _coarse_breach_hours(products, coarse_level)
+    def _compare(hours):
+        return {
+            "sprinkling_62min": roster_vs_triggered(hours, 2, 62),
+            "sweeping_150min": roster_vs_triggered(hours, 2, 150),
+            "suppressant_20h": roster_vs_triggered(hours, 2, 1200),
+            "breach_hours": [int(h) for h in hours],
+            "coarse_action_ugm3": coarse_level,
+            "action_threshold_ugm3": float(threshold),
+        }
+    road_hours = _coarse_breach_hours(products, coarse_level, sources=("road_dust",))
+    equal_cost_road = _compare(road_hours) if road_hours else None
+
+    equal_cost = _compare(breach_hours) if breach_hours else {
+        "breach_hours": [], "coarse_action_ugm3": coarse_level,
         "action_threshold_ugm3": float(threshold),
-        "comparison_threshold_ugm3": naaqs,
+        "note": "no episodic coarse-mode breach hours in this window; the "
+                "equal-cost comparison is undefined rather than zero",
     }
+    if equal_cost_road:
+        equal_cost["road_dust_continuous_profile"] = equal_cost_road
 
     return RunResult(
         site=site.id,
@@ -316,8 +339,7 @@ def run(site_name: str = "rajkot", past_days: int = 92,
                 hourly.attrs.get("dropped_incomplete_hours", 0)),
             "grid_deg": hourly.attrs.get("grid_deg"),
             "injected": t.injected_summary(),
-            "health": t.health().drop(columns=["node"]).reset_index().to_dict(
-                orient="records"),
+            "health": _health_records(t),
         },
         summary={
             "site": site.label,
@@ -344,10 +366,23 @@ def run(site_name: str = "rajkot", past_days: int = 92,
     )
 
 
-def _empirical_breach_hours(products: Mapping[str, NodeProduct],
-                            threshold: float,
-                            sources: Sequence[str] = ("road_dust",
-                                                      "construction")) -> list[int]:
+def _health_records(t: twin.DigitalTwin) -> list[dict]:
+    """Per-node twin character, keyed by node id.
+
+    The frame carries a "node" column *and* a node index, so reset_index() alone
+    produces duplicate labels and pandas silently drops one of them when
+    converting to records. Naming the index first is what makes the key survive.
+    """
+    # health() already carries a "node" column, and orient="records" drops the
+    # index anyway - resetting it first produced two columns called "node" and
+    # pandas silently kept only one of them.
+    return t.health().to_dict(orient="records")
+
+
+def _coarse_breach_hours(products: Mapping[str, NodeProduct],
+                         coarse_threshold: float,
+                         sources: Sequence[str] = ("construction",
+                                                   "open_burning")) -> list[int]:
     """Hours of day when the grid breaches AND the cause is a coarse-mode source.
 
     Both conditions matter. Restricting to a strict action level like the WHO
@@ -362,17 +397,13 @@ def _empirical_breach_hours(products: Mapping[str, NodeProduct],
     hits: set[int] = set()
     for p in products.values():
         by_time = {a.at: a for a in p.attributions}
-        for ts, value in p.calibrated["value"].items():
-            if value < threshold:
+        for ts, row in p.truth[["coarse"]].iterrows():
+            if float(row["coarse"]) < coarse_threshold:
                 continue
             attr = by_time.get(ts)
             if attr is None or attr.top in sources:
                 hits.add(int(ts.hour))
-    if not hits:
-        for p in products.values():
-            over = p.calibrated["value"][p.calibrated["value"] >= threshold]
-            hits.update(int(h) for h in over.index.hour)
-    return sorted(hits) or list(range(24))
+    return sorted(hits)
 
 
 def _summarise_transfer(diag: dict) -> dict:

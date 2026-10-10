@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SETU — operator console</title>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span class="mark">SETU</span>
+    <span class="sub">source-attributed, evidence-graded trigger for urban air</span>
+  </div>
+  <div class="head-right">
+    <span id="site-label" class="chip">loading…</span>
+    <span id="clock" class="chip muted"></span>
+  </div>
+</header>
+
+<div class="banner" id="provenance-banner">
+  Readings on this screen come from a <strong>digital twin</strong> seeded with
+  real hourly CAMS air quality and meteorology for the selected site. The
+  hardware does not exist yet. Concentrations are simulated; the algorithms
+  scoring them are the ones being validated.
+</div>
+
+<main>
+  <section class="tiles" id="tiles">
+    <article class="tile">
+      <h2>What</h2>
+      <p class="big" id="t-what">—</p>
+      <p class="note" id="t-what-note"></p>
+    </article>
+    <article class="tile">
+      <h2>Where</h2>
+      <p class="big" id="t-where">—</p>
+      <p class="note" id="t-where-note"></p>
+    </article>
+    <article class="tile">
+      <h2>Which source</h2>
+      <p class="big" id="t-source">—</p>
+      <p class="note" id="t-source-note"></p>
+    </article>
+    <article class="tile">
+      <h2>What was done, did it work</h2>
+      <p class="big" id="t-action">—</p>
+      <p class="note" id="t-action-note"></p>
+    </article>
+  </section>
+
+  <section class="grid-two">
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Node lattice</h3>
+        <span class="legend">
+          <i class="dot ok"></i> reporting
+          <i class="dot warn"></i> drifting
+          <i class="dot bad"></i> quarantined
+          <i class="dot out"></i> held out
+        </span>
+      </div>
+      <svg id="lattice" viewBox="0 0 400 400" role="img"
+           aria-label="Map of the monitored node lattice"></svg>
+      <p class="foot" id="lattice-foot"></p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Dispatch queue</h3>
+        <span class="muted" id="dispatch-count"></span>
+      </div>
+      <ul class="feed" id="actions"></ul>
+    </div>
+  </section>
+
+  <section class="grid-two">
+    <div class="panel">
+      <div class="panel-head">
+        <h3>What the gates stopped</h3>
+        <span class="muted">a trigger that thrashes is worse than no actuator</span>
+      </div>
+      <table class="tbl" id="ledger">
+        <thead><tr><th>Gate</th><th class="num">Count</th><th>Why it exists</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Validation, including what failed</h3>
+        <span class="muted" id="window-label"></span>
+      </div>
+      <table class="tbl" id="validation">
+        <tbody></tbody>
+      </table>
+      <p class="foot" id="shares-foot"></p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h3>Does triggering beat a fixed roster, at equal cost?</h3>
+      <span class="muted">same number of passes, placed differently</span>
+    </div>
+    <div id="equal-cost" class="bars"></div>
+    <p class="foot">
+      The suppressant row is the honest one. A lever that lasts a day does not
+      care where you put it, so triggering earns nothing there. The case for
+      SETU is conditional on a short-lived lever acting on an episodic source.
+    </p>
+  </section>
+</main>
+
+<footer>
+  <span>SETU prototype · Team Renovator · Techfest InnovateX 2026-27, Theme 2</span>
+  <span class="muted">no API keys · real background from Open-Meteo CAMS + IFS</span>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

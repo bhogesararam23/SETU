@@ -224,12 +224,15 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
         "actually breaches.")
     add("")
     ec = result.equal_cost
-    add(f"Computed at the notified 24-hour standard of "
-        f"{ec.get('comparison_threshold_ugm3', 60):.0f} ug/m3, restricted to hours "
-        f"attributed to a coarse-mode source: "
-        f"{len(ec.get('breach_hours_at_naaqs', []))} distinct breach hours in this "
-        f"window. The engine above was driven at "
-        f"{ec.get('action_threshold_ugm3', 60):.0f} ug/m3.")
+    if ec.get("note"):
+        add(ec["note"])
+    else:
+        add(f"Basis: hours where the coarse fraction cleared "
+            f"{ec.get('coarse_action_ugm3', 30):.0f} ug/m3 and the attributed "
+            f"source was road dust or construction - "
+            f"{len(ec.get('breach_hours', []))} distinct hours in this window. "
+            f"The engine above was driven at "
+            f"{ec.get('action_threshold_ugm3', 60):.0f} ug/m3.")
     add("")
     add("| Lever (effective window) | Roster coverage | Triggered | Gain |")
     add("| --- | --- | --- | --- |")
@@ -245,10 +248,21 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
             f"{row['triggered_coverage']:.2f} | {row['gain']:+.2f} |")
     add("")
     add("The suppressant row is the honest one. A lever that lasts a day does not "
-        "care where you put it, so triggering earns nothing there. The case for "
-        "SETU is conditional on short-lived levers acting on episodic sources - "
-        "which is exactly what road dust is, and exactly what chemical suppression "
-        "is not.")
+        "care where you put it, so triggering earns nothing there.")
+    add("")
+    road = ec.get("road_dust_continuous_profile")
+    if road:
+        add(f"Scored instead on continuously road-proximate dust, present across "
+            f"{len(road.get('breach_hours', []))} hours a day, the gain is "
+            f"{road['sprinkling_62min']['gain']:+.2f}. That is the unfavourable "
+            f"case and it is stated rather than omitted: where a source runs "
+            f"around the clock, no placement strategy helps and the only lever "
+            f"that does is a longer-lived one. Triggering pays off on the "
+            f"episodic sources - construction campaigns and burning nights - "
+            f"and not on the chronic one.")
+    else:
+        add("The continuously-road-dust variant produced no scorable hours in "
+            "this window.")
     add("")
 
     add("## 7. Drift and quarantine")
@@ -259,6 +273,18 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
     if s.get("quarantined"):
         add("")
         add("Quarantined: " + ", ".join(s["quarantined"]))
+    add("")
+    quarantined = len(s.get("quarantined", []))
+    if quarantined > s["nodes"] * 0.5:
+        add("")
+        add(f"**This is a finding, not a passing grade.** More than half the grid "
+            f"tripped its drift monitor within the evaluation window. The "
+            f"calibration was fitted on the monsoon and scored on the post-monsoon "
+            f"period, and the residual relationship moved with it - so a "
+            f"four-month-old calibration does not survive a season change. "
+            f"Operationally that means recalibration is periodic, not one-off. "
+            f"The cost stays low because only the co-location step needs a vehicle: "
+            f"one reference visit refreshes every node transferred from it.")
     add("")
     add("Drift is the documented reason CPCB does not accept low-cost data for "
         "regulatory use, so a monitor that cannot notice its own decay is not "

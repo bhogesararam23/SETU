@@ -95,21 +95,26 @@ The suppression ledger is the point of this table. A dispatcher who receives the
 
 Both arms get the same number of passes per day. The roster spaces them from a 05:00 shift start; the trigger places them on the hours the grid actually breaches.
 
-Computed at the notified 24-hour standard of 60 ug/m3, restricted to hours attributed to a coarse-mode source: 24 distinct breach hours in this window. The engine above was driven at 15 ug/m3.
+Basis: hours where the coarse fraction cleared 30 ug/m3 and the attributed source was road dust or construction - 17 distinct hours in this window. The engine above was driven at 15 ug/m3.
 
 | Lever (effective window) | Roster coverage | Triggered | Gain |
 | --- | --- | --- | --- |
-| Water sprinkling, 62 min | 0.17 | 0.17 | +0.00 |
-| Vacuum sweeping, 150 min | 0.25 | 0.25 | +0.00 |
+| Water sprinkling, 62 min | 0.12 | 0.24 | +0.12 |
+| Vacuum sweeping, 150 min | 0.18 | 0.35 | +0.18 |
 | CaCl2 suppressant, ~20 h | 1.00 | 1.00 | +0.00 |
 
-The suppressant row is the honest one. A lever that lasts a day does not care where you put it, so triggering earns nothing there. The case for SETU is conditional on short-lived levers acting on episodic sources - which is exactly what road dust is, and exactly what chemical suppression is not.
+The suppressant row is the honest one. A lever that lasts a day does not care where you put it, so triggering earns nothing there.
+
+Scored instead on continuously road-proximate dust, present across 24 hours a day, the gain is +0.00. That is the unfavourable case and it is stated rather than omitted: where a source runs around the clock, no placement strategy helps and the only lever that does is a longer-lived one. Triggering pays off on the episodic sources - construction campaigns and burning nights - and not on the chronic one.
 
 ## 7. Drift and quarantine
 
 40 of 40 nodes raised a CUSUM alarm against their own calibration residual.
 
 Quarantined: rajkot-00, rajkot-01, rajkot-02, rajkot-03, rajkot-05, rajkot-06, rajkot-07, rajkot-08, rajkot-10, rajkot-11, rajkot-12, rajkot-13, rajkot-15, rajkot-16, rajkot-17, rajkot-18, rajkot-20, rajkot-21, rajkot-22, rajkot-23, rajkot-25, rajkot-26, rajkot-27, rajkot-28, rajkot-30, rajkot-31, rajkot-32, rajkot-33, rajkot-35, rajkot-36, rajkot-37, rajkot-38, rajkot-40, rajkot-41, rajkot-42, rajkot-43, rajkot-45, rajkot-46, rajkot-47, rajkot-48
+
+
+**This is a finding, not a passing grade.** More than half the grid tripped its drift monitor within the evaluation window. The calibration was fitted on the monsoon and scored on the post-monsoon period, and the residual relationship moved with it - so a four-month-old calibration does not survive a season change. Operationally that means recalibration is periodic, not one-off. The cost stays low because only the co-location step needs a vehicle: one reference visit refreshes every node transferred from it.
 
 Drift is the documented reason CPCB does not accept low-cost data for regulatory use, so a monitor that cannot notice its own decay is not deployable regardless of its initial accuracy.
 

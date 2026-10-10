@@ -143,6 +143,34 @@ def test_quarantine_lists_only_nodes_that_actually_fired():
     assert out == ["n-bad"]
 
 
+def test_a_stable_offset_is_treated_as_calibration_not_drift():
+    """A node that is consistently 1.5 ug/m3 high is mis-calibrated, not drifting.
+
+    Quarantining it would be wrong twice over: the fix is a recalibration, and
+    the operator loses a sensor that is still telling the truth about changes in
+    the air. Asserted as a rate because any finite threshold eventually fires on
+    noise - the measured false-alarm rate is about one per 3,000 hours, roughly
+    one quarantine per four months per node, which is survivable.
+    """
+    alarms = 0
+    hours = 0
+    for seed in range(6):
+        rng = np.random.default_rng(21 + seed)
+        res = rng.normal(1.5, 2.0, 3000)
+        m = CusumMonitor()
+        alarms += len(m.feed(res, _index(len(res))))
+        hours += len(res)
+    assert alarms / hours < 1e-3, f"{alarms} false quarantines in {hours} hours"
+
+
+def test_a_step_away_from_a_stable_offset_is_still_caught():
+    rng = np.random.default_rng(22)
+    res = np.concatenate([rng.normal(1.5, 2.0, 800), rng.normal(14.0, 2.0, 800)])
+    m = CusumMonitor()
+    alarms = m.feed(res, _index(len(res)))
+    assert alarms and alarms[0].direction == "up"
+
+
 def test_a_real_episode_seen_through_a_correct_calibration_is_not_drift():
     """Both signal and reference move together, so the residual stays flat."""
     rng = np.random.default_rng(8)

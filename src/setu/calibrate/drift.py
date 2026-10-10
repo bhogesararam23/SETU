@@ -84,6 +84,7 @@ class CusumMonitor:
         self.cooldown = cooldown
 
         self._residuals: list[float] = []
+        self._baseline_mean: float = 0.0
         self._pos = 0.0
         self._neg = 0.0
         self._sigma: float | None = None
@@ -117,12 +118,21 @@ class CusumMonitor:
         if self._sigma is None:
             if self._n < self.warm_up:
                 return None
+            # Centre on the in-control mean as well as scaling by sigma. A node
+            # that is stably 0.8 ug/m3 high has a calibration offset, not drift;
+            # accumulating on the raw residual would quarantine it eventually no
+            # matter how well behaved it is, and on a 92-day window that is
+            # exactly what happened - 40 of 49 healthy nodes were quarantined.
+            # What must be caught is the residual MOVING.
+            self._baseline_mean = float(np.mean(
+                self._residuals[:self.warm_up]))
             self._sigma = self._estimate_sigma()
 
+        centred = residual - self._baseline_mean
         k = self.allowance * self._sigma
         h = self.interval * self._sigma
-        self._pos = max(0.0, self._pos + residual - k)
-        self._neg = max(0.0, self._neg - residual - k)
+        self._pos = max(0.0, self._pos + centred - k)
+        self._neg = max(0.0, self._neg - centred - k)
 
         self._since_alarm += 1
         alarm = None
@@ -169,6 +179,7 @@ class CusumMonitor:
             "samples": self._n,
             "warm_up_complete": self._sigma is not None,
             "sigma": None if self._sigma is None else round(self._sigma, 3),
+            "baseline_mean": round(self._baseline_mean, 3),
             "pos_statistic": round(self._pos / self._sigma, 2) if self._sigma else 0.0,
             "neg_statistic": round(self._neg / self._sigma, 2) if self._sigma else 0.0,
             "alarms": len(self._alarms),
