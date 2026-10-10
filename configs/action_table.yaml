@@ -1,0 +1,131 @@
+# SETU graded local response table
+#
+# Source -> action, with the measured half-life of each lever. The half-lives
+# are the reason a closed loop is worth building at all: if a lever lasted a
+# day, a fixed municipal roster would be nearly as good as a triggered one,
+# and this whole project would be an expensive way to rediscover that.
+#
+# effect_pct is the measured ambient or emission-factor reduction of a single
+# application. half_life_min is how long that effect remains observable. Both
+# are taken from the cited study, not fitted.
+
+levers:
+
+  vacuum_sweeping:
+    label: Vacuum / regenerative-air sweeping of the treated stretch
+    effect_pct: 24.0            # PM10, sweeping combined with flushing
+    half_life_min: 150.0        # benefit reported as 2-3 h for PM10
+    reentrainment_risk: low
+    # AIRUSE LIFE11 ENV/ES/584, Report 15, 2016: sweeping alone frequently
+    # shows no observable ambient change; sweeping plus flushing reached up to
+    # 30% on TSP and 24% on PM10, with benefits lasting 3-4 h and 2-3 h.
+    # Mechanical broom sweepers re-entrain fines relative to vacuum types.
+    source: AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)
+    owner: ward_sanitation_supervisor
+    unit_cost_inr: 1400
+
+  water_sprinkling:
+    label: Water sprinkling / tanker on the treated stretch
+    effect_pct: 45.0            # midpoint of the 37-53% arterial range
+    half_life_min: 62.0         # effective ~62 min, fully decayed by ~72 min
+    reentrainment_risk: high    # re-dries to silt and is re-entrained
+    # J. Environ. Sci. (2023), doi:10.1016/j.jes.2021.12.005 - TRAKER method,
+    # Baoding: ambient road-environment PM reduction 37-53% on a major
+    # arterial, 46-58% on a branch, 70% on a minor arterial, with surface-PM
+    # removal of 68-100% but effective control for only about 62 minutes.
+    source: J. Environ. Sci. (2023) doi:10.1016/j.jes.2021.12.005
+    owner: ward_sanitation_supervisor
+    unit_cost_inr: 600
+
+  chemical_suppressant:
+    label: Calcium chloride suppressant at 30 g/m2
+    effect_pct: 97.6            # PM10 emission factor
+    half_life_min: 1200.0       # clearly worse at 24 h than at 1 day
+    reentrainment_risk: low
+    # Shaikh et al., J. Air Pollut. Health 8(4):485-500, 2023 - Pimpri-
+    # Chinchwad field trial on three road types and two seasons: 30 g/m2 CaCl2
+    # cut silt loading by 99.73% and the PM10 emission factor by 97.59%. This
+    # is an emission-factor and silt-load result, NOT an ambient reduction,
+    # and the engine treats it as such.
+    source: Shaikh et al., J. Air Pollut. Health 8(4) (2023)
+    owner: municipal_engineering_department
+    unit_cost_inr: 5200
+
+  site_notice:
+    label: Notice and inspection of the contributing construction site
+    effect_pct: null            # no measured ambient effect size published
+    half_life_min: null
+    reentrainment_risk: null
+    # AQuaIM/DPCC (2023) prescribes wet suppression, wind-breakers, covered
+    # storage, fine-screen enclosure, wheel washing and no roadside material
+    # storage within 10 m. No peer-reviewed effect size for anti-smog nets or
+    # the anti-smog gun could be located, so the engine issues the notice and
+    # refuses to claim a number for it.
+    source: AQuaIM / DPCC action plan (2023)
+    owner: municipal_enforcement_cell
+    unit_cost_inr: 0
+
+  patrol_open_burning:
+    label: Patrol routing to the upwind block for open-burning enforcement
+    effect_pct: null
+    half_life_min: null
+    reentrainment_risk: null
+    source: Sharma et al., ES&T 53(8) (2019)
+    owner: solid_waste_and_fire_branch
+    unit_cost_inr: 900
+
+  signal_retiming:
+    label: Re-offset the congested approach to cut stops and idle
+    effect_pct: 21.0            # emissions, corridor-scale, not ambient
+    half_life_min: null
+    reentrainment_risk: null
+    # SURTRAC at East Liberty, Pittsburgh: travel time -22.7 to -33.8%, stops
+    # -31%, wait time -40%, emissions -21% (Ang et al., AAAI-13 Fall Symposium).
+    # Listed as a HYPOTHESIS with its own control zone: no peer-reviewed study
+    # demonstrating a measured AMBIENT air-quality improvement from adaptive
+    # signal control could be found, in India or elsewhere.
+    source: Ang et al., AAAI-13 Fall Symposium (SURTRAC)
+    owner: traffic_police_its_operator
+    unit_cost_inr: 0
+
+# ---------------------------------------------------------------------------
+# Trigger policy. A trigger fires only when every gate below passes; the gates
+# exist because an actuator that thrashes is worse than no actuator.
+# ---------------------------------------------------------------------------
+gates:
+  min_source_posterior: 0.45
+  persistence_windows: 3        # k of n consecutive windows must agree
+  persistence_of: 4
+  uncertainty_must_exclude_threshold: true
+  min_dwell_minutes: 90         # no repeat dispatch of the same lever+zone
+  hysteresis_pct: 15            # clear the trigger 15% below where it armed
+  require_human_signoff: true   # the system emits evidence, never a penalty
+
+# Which lever to pull for which attributed source, in preference order. The
+# engine walks this list, skips anything the source cannot justify, and stops
+# at the first affordable lever.
+policy:
+  road_dust: [vacuum_sweeping, water_sprinkling]
+  construction: [site_notice, water_sprinkling]
+  open_burning: [patrol_open_burning]
+  traffic_combustion: [signal_retiming]
+  secondary: []                 # empty on purpose - see signatures.yaml
+
+# Do-not-build list. Kept next to the policy so a future contributor cannot
+# quietly add a smog tower to the action table.
+refusals:
+  smog_tower: >
+    CAQM and the NEERI panel advised the NGT in November 2023 that smog towers
+    are ineffective; IIT Bombay withdrew from the Delhi pilot and no measured
+    effectiveness was ever published.
+  blanket_odd_even: >
+    Chandra et al., Curr. Sci. 114(6) (2018) found Delhi's 2016 odd-even trial
+    did not reduce traffic emissions of VOCs, CO2, CH4 or CO; Kumar et al.,
+    Environ. Pollut. 225 (2017) found the effect negligible in the morning.
+  default_tree_belt: >
+    Kumar et al., The Innovation Geoscience 2(4) (2024) reports hedges at
+    14-25% PM removal but idealised street-canyon modelling reports an average
+    increase, because foliage traps what it cannot disperse.
+  citywide_construction_ban_on_an_average: >
+    This is the mechanism GRAP already runs, measured by Ravish et al.,
+    Discover Atmosphere (2026) as "limited and meteorology-dependent".
