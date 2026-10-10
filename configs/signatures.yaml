@@ -1,0 +1,125 @@
+# SETU source signatures
+#
+# Each entry states what a source does to the *particulate size distribution*
+# and which gas or meteorological channel corroborates it, with the published
+# basis. These are priors for the classifier in src/setu/attribute/, not free
+# parameters fitted until the answer looks nice.
+#
+# Channel vocabulary:
+#   coarse_ratio  = (PM10 - PM2.5) / PM10        the coarse share of mass
+#   fine_ratio    = PM2.5 / PM10
+#   co_excess     CO above the site baseline
+#   no2_excess    NO2 above the site baseline
+#   o3_excess     O3 above the site baseline
+#   dust          CAMS mineral-dust column
+#   rh            relative humidity, fraction
+#   wind_speed    m/s at 10 m
+#
+# The prototype only has the two-bin PM split available from CAMS. The real
+# node gives four mass channels (SPS30: PM1/2.5/4/10) and six number bins
+# (PMS5003: 0.3/0.5/1.0/2.5/5.0/10 um); the digital twin supplies those and
+# `channels_simulated` marks which features are only exercised in the twin.
+
+sources:
+
+  road_dust:
+    label: Re-entrained road dust and non-exhaust traffic particulate
+    # Brake-wear mass mode 1-10 um, tyre-wear 10 nm-10 um, and tyre-wear
+    # PM10/PM2.5 of about 2.0-2.5; non-exhaust is 73% of traffic-related PM10
+    # and 60% of PM2.5. Road-dust resuspension can be up to 79% of PM.
+    # Tian et al., Environ. Sci. Technol., 2022, doi:10.1021/acs.est.2c01072
+    prior_weight: 0.30
+    features:
+      coarse_ratio: { direction: up, strength: 0.95 }
+      fine_ratio: { direction: down, strength: 0.55 }
+      wind_speed: { direction: up, strength: 0.70 }   # resuspension is speed-gated
+      no2_excess: { direction: up, strength: 0.35 }   # traffic co-location, weak
+      co_excess: { direction: up, strength: 0.10 }
+      rh: { direction: down, strength: 0.25 }         # damp roads suppress loading
+    channels_simulated: [coarse_ratio]
+    corroborates: traffic_counts
+    actionable_locally: true
+
+  construction:
+    label: Construction and demolition dust
+    # Coarse and crustal, and strictly near-field. At the Delhi supersite
+    # construction contributed 0% of winter PM2.5 (AQuaIM/DPCC, 2023) while
+    # dust overall was 38-42% of summer PM10 (ARAI/CPCB, 2018) - i.e. a source
+    # that a city average cannot see but a 200 m grid can.
+    prior_weight: 0.15
+    features:
+      coarse_ratio: { direction: up, strength: 1.00 }
+      fine_ratio: { direction: down, strength: 0.70 }
+      wind_speed: { direction: up, strength: 0.55 }
+      dust: { direction: up, strength: 0.45 }
+      no2_excess: { direction: flat, strength: 0.05 }
+      co_excess: { direction: flat, strength: 0.05 }
+    channels_simulated: [coarse_ratio]
+    corroborates: registered_site_within_200m
+    actionable_locally: true
+
+  open_burning:
+    label: Open waste or biomass burning
+    # Accumulation-mode, fine-heavy, episodic and often nocturnal. India
+    # generated 216 (201-232) Tg/yr of MSW in 2015 of which 68 (45-105) Tg/yr,
+    # about 31%, was burnt in the open, raising national BC and NMVOC by
+    # 8-12% each. Sharma, Sinha et al., ES&T 53(8):4765, 2019,
+    # doi:10.1021/acs.est.8b07076. Biomass burning was 22% of winter PM2.5 and
+    # crop residue exceeded 35% on peak days at the Delhi supersite
+    # (AQuaIM/DPCC, 2023).
+    prior_weight: 0.15
+    features:
+      fine_ratio: { direction: up, strength: 0.90 }
+      coarse_ratio: { direction: down, strength: 0.60 }
+      co_excess: { direction: up, strength: 0.95 }
+      no2_excess: { direction: up, strength: 0.45 }
+      rh: { direction: up, strength: 0.30 }           # dawn/dusk episodes
+      wind_speed: { direction: down, strength: 0.35 } # pooling under calm
+    channels_simulated: []
+    corroborates: viirs_fire_counts
+    actionable_locally: true
+
+  secondary:
+    label: Secondary inorganic aerosol and regional transport
+    # Fine, humidity-driven and imported. 84% of Delhi's winter secondary
+    # inorganic aerosol arrives from more than 30 km away (AQuaIM/DPCC, 2023),
+    # and secondary ions were 26-32% of winter PM2.5 in the same and the
+    # earlier ARAI/CPCB receptor work.
+    #
+    # Deliberately marked NOT actionable locally. Recommending a sweep to fix
+    # advection is the single most expensive mistake a system like this can
+    # make, because it spends the budget and forfeits the credibility.
+    prior_weight: 0.30
+    features:
+      fine_ratio: { direction: up, strength: 0.85 }
+      coarse_ratio: { direction: down, strength: 0.75 }
+      rh: { direction: up, strength: 0.90 }
+      so2_excess: { direction: up, strength: 0.50 }
+      o3_excess: { direction: up, strength: 0.45 }
+      upwind_excess: { direction: up, strength: 0.80 }
+    channels_simulated: [upwind_excess]
+    corroborates: upwind_node_excess
+    actionable_locally: false
+
+  traffic_combustion:
+    label: Internal-combustion exhaust at a congested approach
+    # Real-world NOx from BS-VI fleets measured by remote sensing over 112,000
+    # vehicles in Delhi and Gurugram ran 1.5-14x the applicable laboratory
+    # limits (TRUE Initiative, 2024). Google Project Green Light reports
+    # intersection pollution up to 29x open road, with about half of
+    # intersection emissions coming from acceleration after a stop.
+    prior_weight: 0.10
+    features:
+      fine_ratio: { direction: up, strength: 0.60 }
+      no2_excess: { direction: up, strength: 0.95 }
+      co_excess: { direction: up, strength: 0.70 }
+      wind_speed: { direction: down, strength: 0.40 } # queuing under congestion
+    channels_simulated: []
+    corroborates: junction_queue_length
+    actionable_locally: true
+
+# Baseline used to form the *_excess features: a rolling site median over this
+# window, which is robust to the diurnal cycle without removing it entirely.
+baseline:
+  window_hours: 336
+  statistic: median
