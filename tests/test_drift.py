@@ -90,10 +90,11 @@ def test_resetting_stops_one_long_drift_becoming_two_thousand_alarms():
 
 def test_sigma_is_not_inflated_by_the_drift_it_is_trying_to_detect():
     rng = np.random.default_rng(6)
-    clean = rng.normal(0, 2.0, 200)
-    m = CusumMonitor()
+    clean = rng.normal(0, 2.0, 400)
+    m = CusumMonitor(warm_up=200)
     m.feed(clean, _index(len(clean)))
     baseline_sigma = m.sigma
+    assert baseline_sigma is not None, "warm_up must be satisfied by the clean feed"
     assert baseline_sigma == pytest.approx(2.0, abs=0.8)
     # A MAD estimator survives the contaminated tail; a standard deviation
     # would have grown with it and pushed the threshold out of reach.
