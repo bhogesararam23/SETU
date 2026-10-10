@@ -108,12 +108,20 @@ class CalibrationModel:
             )
 
         def make(alpha: float | None = None) -> HistGradientBoostingRegressor:
-            kwargs = dict(random_state=self.random_state, max_iter=self.max_iter,
-                          learning_rate=0.06, max_depth=4, min_samples_leaf=24,
-                          l2_regularization=1.0)
-            if alpha is not None:
-                kwargs.update(loss="quantile", alpha=alpha)
-            return HistGradientBoostingRegressor(**kwargs)
+            base = dict(random_state=self.random_state, max_iter=self.max_iter,
+                        learning_rate=0.06, max_depth=4, min_samples_leaf=24,
+                        l2_regularization=1.0)
+            if alpha is None:
+                return HistGradientBoostingRegressor(**base)
+            # scikit-learn renamed this: 1.4-1.7 take loss="quantile" with
+            # `alpha`, 1.8+ with `quantile`. Trying both keeps a clone working
+            # on whatever the reader already has installed.
+            try:
+                return HistGradientBoostingRegressor(
+                    loss="quantile", quantile=alpha, **base)
+            except TypeError:
+                return HistGradientBoostingRegressor(
+                    loss="quantile", alpha=alpha, **base)
 
         self._median = make()
         self._lo = make(LOW_Q)
