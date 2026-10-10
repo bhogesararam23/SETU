@@ -1,0 +1,15 @@
+# Runtime dependencies for the SETU prototype.
+#
+# Deliberately small: the prototype must run on a judge's laptop with no
+# service accounts and no API keys. Everything here is a public PyPI wheel.
+requests>=2.31,<3
+PyYAML>=6.0,<7
+fastapi>=0.110,<1
+uvicorn>=0.27,<1
+
+# Numerics. numpy/scikit-learn carry their own BLAS; no CUDA assumption.
+numpy>=1.26
+scikit-learn>=1.4
+
+# Dev / verification only. The pipeline itself does not import pytest.
+pytest>=8.0
