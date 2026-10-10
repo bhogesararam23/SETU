@@ -1,0 +1,9 @@
+# Normalise line endings so the repo diffs identically on the Windows laptops
+# this project is developed on and the Linux container that runs CI.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.pdf binary
+*.ino text
+*.md text
