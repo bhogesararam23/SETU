@@ -138,6 +138,15 @@ def test_stats_counts_entries_without_counting_metadata(cache):
     assert st["bytes"] > 0
 
 
+def test_default_cache_dir_lands_in_the_repo_not_inside_the_package():
+    """This drifted into src/data once, which gitignored nothing and confused
+    everyone. Pin the location."""
+    resolved = cache_mod.DEFAULT_CACHE_DIR.resolve()
+    assert resolved.parent.name == "data"
+    assert resolved.name == "cache"
+    assert "src" not in resolved.parts
+
+
 def test_user_agent_identifies_the_project():
     sess = requests.Session()
     sess.headers.update({"User-Agent": cache_mod.USER_AGENT})

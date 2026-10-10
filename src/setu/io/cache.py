@@ -25,7 +25,9 @@ import requests
 
 from ..errors import UpstreamUnavailable
 
-DEFAULT_CACHE_DIR = Path(__file__).resolve().parents[2] / "data" / "cache"
+# cache.py sits at <repo>/src/setu/io/cache.py, so the repository root is three
+# parents up, not two. Getting this wrong writes the cache inside the package.
+DEFAULT_CACHE_DIR = Path(__file__).resolve().parents[3] / "data" / "cache"
 
 # Identified honestly: if an operator ever needs to ask us to back off, the
 # User-Agent says who to email and the contact is in the README.
