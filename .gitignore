@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.coverage
+dist/
+build/
+*.egg-info/
+
+# Local scratch and downloaded payloads
+*.orig
+*.rej
+scratch/
+.tmp/
+
+# Cached upstream responses are large and reproducible; keep the checked-in
+# fixtures under data/fixtures/ and ignore everything else.
+data/cache/
+data/*.parquet
+
+# Editor / OS noise
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
