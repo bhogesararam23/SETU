@@ -1,6 +1,6 @@
 """CPCB CAAQMS adapter - the real calibration target, and an honest status.
 
-The deck promises calibration against a reference-grade continuous station.
+The design promises calibration against a reference-grade continuous station.
 That is this module. It is written against CPCB's public CSV endpoints, which
 need no key.
 

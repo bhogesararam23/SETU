@@ -31,7 +31,7 @@ DEFAULT_CACHE_DIR = Path(__file__).resolve().parents[3] / "data" / "cache"
 
 # Identified honestly: if an operator ever needs to ask us to back off, the
 # User-Agent says who to email and the contact is in the README.
-USER_AGENT = "SETU-air-prototype/0.1 (student competition prototype; +https://github.com/bhogesararam23/SETU)"
+USER_AGENT = "SETU-air-prototype/0.1 (independent research prototype; +https://github.com/bhogesararam23/SETU)"
 
 #: Set SETU_OFFLINE=1 to forbid all network access, e.g. on a demo machine.
 OFFLINE_ENV = "SETU_OFFLINE"

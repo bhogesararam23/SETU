@@ -261,7 +261,7 @@ class SourceClassifier:
 def seasonal_shares(attributions: Sequence[Attribution]) -> pd.Series:
     """Time share per source, for comparison against receptor studies.
 
-    This is the cross-check the deck promised: if SETU says construction is
+    This is the cross-check the design promised: if SETU says construction is
     40% of the year where chemical mass balance says 0-15%, the classifier is
     wrong and the report has to say so.
     """

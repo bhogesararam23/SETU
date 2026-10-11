@@ -41,7 +41,7 @@ def build_app(site_name: str = "rajkot") -> FastAPI:
         title="SETU operator console",
         version="0.1.0",
         description="Source-attributed, evidence-graded trigger for urban air "
-                    "quality. Team Renovator, Techfest InnovateX Theme 2.",
+                    "quality. Team Renovator, Rajkot, Gujarat.",
     )
     site = load_site(site_name)
     table = load_action_table()

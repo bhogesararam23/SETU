@@ -7,7 +7,6 @@ site:
   id: rajkot
   label: Rajkot, Gujarat
   team: Renovator
-  team_id: TM-6CEAA83E01F
   theme: 2
   # Urban-agglomeration centroid. Rounded to 4 dp on purpose: the Open-Meteo
   # CAMS grid cell is ~0.1 deg, so sub-kilometre precision here would be
@@ -18,7 +17,7 @@ site:
   timezone: Asia/Kolkata
 
 pilot:
-  # 2.0 km x 2.0 km = 4 km^2, matching the deck's stated pilot extent.
+  # 2.0 km x 2.0 km = 4 km^2, matching the pilot extent in the write-up.
   extent_km: 2.0
   spacing_m: 320
   # spacing 320 m over 2000 m gives a 7x7 lattice = 49 candidate sites.

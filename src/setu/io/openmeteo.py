@@ -10,7 +10,7 @@ Why this source carries the prototype:
 
 What it is not: a reference monitor. The CAMS global ensemble is a model
 analysis at roughly 0.1 degrees - about 10 km - so it cannot resolve a street,
-and it is not the calibration target the deck promises. The CPCB adapter in
+and it is not the calibration target the design promises. The CPCB adapter in
 `cpcb.py` is that target; until it is reachable, this module supplies the
 background signal that the digital twin then distributes over the grid.
 """
