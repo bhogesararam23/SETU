@@ -13,12 +13,13 @@ dependencies = [
     "requests>=2.31,<3",
     "PyYAML>=6.0,<7",
     "numpy>=1.26",
+    "pandas>=2.0,<3",
     "scikit-learn>=1.4",
 ]
 
 [project.optional-dependencies]
 serve = ["fastapi>=0.110,<1", "uvicorn>=0.27,<1"]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "httpx>=0.27"]
 
 [project.scripts]
 setu = "setu.cli:main"

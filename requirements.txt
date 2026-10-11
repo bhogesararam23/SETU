@@ -9,7 +9,10 @@ uvicorn>=0.27,<1
 
 # Numerics. numpy/scikit-learn carry their own BLAS; no CUDA assumption.
 numpy>=1.26
+pandas>=2.0,<3
 scikit-learn>=1.4
 
 # Dev / verification only. The pipeline itself does not import pytest.
 pytest>=8.0
+# fastapi.testclient needs httpx; it is a test dependency, not a runtime one.
+httpx>=0.27
