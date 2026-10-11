@@ -58,6 +58,23 @@ def _cmd_probe_upstream(args: argparse.Namespace) -> int:
     return 0 if report["reachable"] else 1
 
 
+def write_evidence(dispatches: list[dict], directory: Path,
+                   limit: int) -> list[Path]:
+    """Publish evidence packs for this run's dispatches, and only those.
+
+    Packs from an earlier run are not overwritten by a shorter run, so the
+    directory accumulates references to dispatches that no longer appear in
+    validation.json - a reader who opens one finds a trigger the committed report
+    does not contain. Clear first, then write.
+    """
+    target = directory / "evidence"
+    target.mkdir(parents=True, exist_ok=True)
+    for stale in target.glob("*.json"):
+        stale.unlink()
+    return [evidence_pack(action, directory)
+            for action in dispatches[:max(0, limit)]]
+
+
 def _cmd_run(args: argparse.Namespace) -> int:
     result = run_pipeline(args.site, past_days=args.days,
                           node_limit=args.nodes, verbose=True,
@@ -68,8 +85,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     # evidence pack. Suppressions are in validation.json under the ledger.
     dispatches = [a for a in result.response.get("sample_actions", [])
                   if "id" in a]
-    for action in dispatches[: args.evidence]:
-        evidence_pack(action, RESULTS_DIR)
+    write_evidence(dispatches, RESULTS_DIR, args.evidence)
     print()
     print(f"validation json -> {json_path}")
     print(f"validation md   -> {md_path}")

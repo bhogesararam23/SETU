@@ -69,6 +69,51 @@ def test_threshold_accuracy_row_states_which_threshold(committed_summary):
     assert f"@ {level:.0f} ug/m3" in rows["threshold_accuracy"]
 
 
+def test_evidence_packs_are_cleared_before_being_written(tmp_path):
+    """A run that writes fewer packs than the run before it used to leave the
+    difference behind: results/evidence/ then contains dispatches that
+    validation.json does not mention, and a reader who opens one is citing an
+    artefact of an older configuration."""
+    from setu.cli import write_evidence
+
+    (tmp_path / "evidence").mkdir(parents=True)
+    stray = tmp_path / "evidence" / "A99999.json"
+    stray.write_text('{"id": "A99999"}', encoding="utf-8")
+
+    packs = write_evidence([{"id": "A00001"}, {"id": "A00002"}], tmp_path, limit=10)
+
+    assert not stray.exists(), "stale pack survived the run"
+    assert sorted(p.name for p in packs) == ["A00001.json", "A00002.json"]
+    assert sorted(p.name for p in (tmp_path / "evidence").glob("*.json")) \
+        == ["A00001.json", "A00002.json"]
+
+
+def test_evidence_limit_is_honoured_and_negative_is_empty(tmp_path):
+    from setu.cli import write_evidence
+
+    (tmp_path / "evidence").mkdir(parents=True)
+    three = [{"id": f"A0000{i}"} for i in (1, 2, 3)]
+
+    assert len(write_evidence(three, tmp_path, limit=2)) == 2
+    assert sorted(p.name for p in (tmp_path / "evidence").glob("*.json")) \
+        == ["A00001.json", "A00002.json"], "the limit wrote more than it was given"
+
+    assert write_evidence(three, tmp_path, limit=-1) == []
+    assert list((tmp_path / "evidence").glob("*.json")) == [], \
+        "a non-positive limit must leave no packs, not the previous run's"
+
+
+def test_committed_evidence_matches_the_committed_dispatches(committed_summary):
+    """Every published pack must be a dispatch the report actually claims."""
+    path = Path(report.RESULTS_DIR) / "validation.json"
+    if not path.exists():
+        pytest.skip("no committed run output in this checkout")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    claimed = {a["id"] for a in data.get("sample_actions", []) if "id" in a}
+    published = {p.stem for p in (report.RESULTS_DIR / "evidence").glob("*.json")}
+    assert published <= claimed, f"orphan packs: {sorted(published - claimed)}"
+
+
 def test_the_published_report_matches_the_committed_run(committed_summary):
     """results/VALIDATION.md is generated, so its header has to agree with the
     numbers sitting beside it in results/validation.json. Regenerate with
