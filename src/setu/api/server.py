@@ -18,7 +18,9 @@ from ..config import load_action_table, load_site
 from ..grid import build_lattice, holdout, instrumented
 from ..report import RESULTS_DIR
 
-DASHBOARD_DIR = Path(__file__).resolve().parents[2] / "dashboard"
+# server.py sits at <repo>/src/setu/api/server.py, so the repository root is
+# four levels up - parents[2] resolves to src/ and the dashboard silently 404s.
+DASHBOARD_DIR = Path(__file__).resolve().parents[3] / "dashboard"
 
 
 def _load_results(site: str) -> dict:
