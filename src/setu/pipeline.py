@@ -232,11 +232,46 @@ def forecast_all(products: Mapping[str, NodeProduct],
             for skill in evaluate_forecast({h: pd.concat(v)})]
 
 
-def run_response(products: Mapping[str, NodeProduct], threshold: float
-                 ) -> tuple[dict, list[dict]]:
+def _spread(rows: list[dict], limit: int) -> list[dict]:
+    """Round-robin the sample across (node, kind) groups.
+
+    `rows` come out of the engine node by node, so `rows[:400]` was one node's
+    entire night: the console's dispatch queue and suppression ledger showed a
+    single pole. Spreading by node alone overcorrects - suppressions outnumber
+    dispatches about 4:1, so one row per node is all suppressions and the queue
+    goes empty. Grouping by node AND kind keeps both panels populated and makes
+    each span the grid. The counts in engine.summary() are computed over every
+    row, so this changes only what the sample displays.
+    """
+    groups: dict[tuple[str, str], list[dict]] = {}
+    for r in rows:
+        kind = "dispatch" if "id" in r else "suppress"
+        groups.setdefault((str(r.get("node", "?")), kind), []).append(r)
+
+    order = sorted(groups)
+    out: list[dict] = []
+    i = 0
+    while len(out) < limit and any(groups[g] for g in order):
+        key = order[i % len(order)]
+        if groups[key]:
+            out.append(groups[key].pop(0))
+        i += 1
+    return out
+
+
+def run_response(products: Mapping[str, NodeProduct], threshold: float,
+                 per_kind: int = 12) -> tuple[dict, list[dict]]:
+    """Drive the engine over every node; return the summary plus a sample.
+
+    The sample is bounded per (node, kind) rather than by a global row count. A
+    flat `rows[:4000]` cap was exhausted by the first three nodes, so the console
+    displayed one pole's night and, after the first spread fix, three dispatches
+    out of 40 rows. The engine still sees every node-hour; only what gets kept
+    for display is capped, and every dispatch counts toward the totals either way.
+    """
     table = load_action_table()
     engine = ResponseEngine(table)
-    rows: list[dict] = []
+    kept: dict[tuple[str, str], list[dict]] = {}
     for nid, p in products.items():
         cal = p.calibrated
         by_time = {a.at: a for a in p.attributions}
@@ -257,10 +292,13 @@ def run_response(products: Mapping[str, NodeProduct], threshold: float
                 low=float(row["low"]), high=float(row["high"]),
             )
             out = engine.update(obs)
-            rows.append(out.as_dict())
-            if len(rows) > 4000:
-                break
-    return engine.summary(), rows[:400]
+            record = out.as_dict()
+            kind = "dispatch" if "id" in record else "suppress"
+            bucket = kept.setdefault((nid, kind), [])
+            if len(bucket) < per_kind:
+                bucket.append(record)
+    sample = [r for key in sorted(kept) for r in kept[key]]
+    return engine.summary(), _spread(sample, 400)
 
 
 def run(site_name: str = "rajkot", past_days: int = 92,

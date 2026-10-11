@@ -57,14 +57,14 @@
         "url": "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=22.3039&longitude=70.7962&hourly=pm2_5,pm10,carbon_monoxide,nitrogen_dioxide,ozone,sulphur_dioxide,dust,aerosol_optical_depth&past_days=92&forecast_days=0&timezone=Asia/Kolkata&wind_speed_unit=ms",
         "fetched_at_iso": "2026-10-10T21:41:02Z",
         "from_cache": true,
-        "age_seconds": 9233.0
+        "age_seconds": 22864.0
       },
       {
         "label": "open-meteo-forecast",
         "url": "https://api.open-meteo.com/v1/forecast?latitude=22.3039&longitude=70.7962&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,surface_pressure,boundary_layer_height&past_days=92&forecast_days=0&timezone=Asia/Kolkata&wind_speed_unit=ms",
         "fetched_at_iso": "2026-10-10T21:41:04Z",
         "from_cache": true,
-        "age_seconds": 9231.8
+        "age_seconds": 22862.8
       }
     ],
     "hourly_rows": 1772,
@@ -2481,66 +2481,95 @@
     }
   ],
   "response": {
-    "actions": 739,
-    "suppressed": 3299,
+    "actions": 14224,
+    "suppressed": 56656,
     "suppressed_by_reason": {
-      "persistence": 355,
-      "not_armed": 1522,
-      "dwell": 631,
-      "uncertainty": 80,
-      "refused_by_evidence": 707,
-      "unknown_source": 4
+      "persistence": 6369,
+      "not_armed": 26315,
+      "dwell": 11392,
+      "uncertainty": 2287,
+      "refused_by_evidence": 10185,
+      "unknown_source": 108
     },
     "actions_by_lever": {
-      "vacuum_sweeping": 668,
-      "site_notice": 20,
-      "signal_retiming": 51
+      "vacuum_sweeping": 11621,
+      "site_notice": 1254,
+      "signal_retiming": 898,
+      "patrol_open_burning": 451
     },
     "zones_tracked": 40,
     "signoff_required": true
   },
   "sample_actions": [
     {
-      "node": "rajkot-02",
+      "id": "A13493",
+      "node": "rajkot-00",
+      "source": "road_dust",
+      "lever": "vacuum_sweeping",
+      "owner": "ward_sanitation_supervisor",
+      "dispatched_at": "2026-07-29 12:00:00",
+      "recheck_at": "2026-07-29 13:52:30",
+      "trigger_value": 23.200348848849348,
+      "trigger_sigma": 0.5,
+      "threshold": 15.0,
+      "evidence": {
+        "posterior": {
+          "construction": 0.0008,
+          "open_burning": 0.0,
+          "road_dust": 0.9991,
+          "secondary": 0.0001,
+          "traffic_combustion": 0.0
+        },
+        "coarse_ratio": 0.707,
+        "wind_from_deg": 251.0,
+        "lever_effect_pct": 24.0,
+        "lever_half_life_min": 150.0,
+        "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
+        "gate_min_posterior": 0.45,
+        "provenance": "digital-twin"
+      },
+      "requires_signoff": true
+    },
+    {
+      "node": "rajkot-00",
       "at": "2026-07-29 04:00:00",
       "reason": "persistence",
       "detail": "1 of last 4 windows breached, need 3"
     },
     {
-      "node": "rajkot-02",
-      "at": "2026-07-29 05:00:00",
-      "reason": "persistence",
-      "detail": "2 of last 4 windows breached, need 3"
+      "id": "A13878",
+      "node": "rajkot-01",
+      "source": "road_dust",
+      "lever": "vacuum_sweeping",
+      "owner": "ward_sanitation_supervisor",
+      "dispatched_at": "2026-07-29 12:00:00",
+      "recheck_at": "2026-07-29 13:52:30",
+      "trigger_value": 23.199890446575825,
+      "trigger_sigma": 0.5,
+      "threshold": 15.0,
+      "evidence": {
+        "posterior": {
+          "construction": 0.0,
+          "open_burning": 0.0,
+          "road_dust": 0.9987,
+          "secondary": 0.0012,
+          "traffic_combustion": 0.0
+        },
+        "coarse_ratio": 0.617,
+        "wind_from_deg": 251.0,
+        "lever_effect_pct": 24.0,
+        "lever_half_life_min": 150.0,
+        "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
+        "gate_min_posterior": 0.45,
+        "provenance": "digital-twin"
+      },
+      "requires_signoff": true
     },
     {
-      "node": "rajkot-02",
-      "at": "2026-07-29 06:00:00",
-      "reason": "persistence",
-      "detail": "2 of last 4 windows breached, need 3"
-    },
-    {
-      "node": "rajkot-02",
-      "at": "2026-07-29 07:00:00",
-      "reason": "not_armed",
-      "detail": "value 12.6 below arm level 15.0"
-    },
-    {
-      "node": "rajkot-02",
-      "at": "2026-07-29 08:00:00",
-      "reason": "not_armed",
-      "detail": "value 12.6 below arm level 15.0"
-    },
-    {
-      "node": "rajkot-02",
-      "at": "2026-07-29 09:00:00",
+      "node": "rajkot-01",
+      "at": "2026-07-29 04:00:00",
       "reason": "persistence",
       "detail": "1 of last 4 windows breached, need 3"
-    },
-    {
-      "node": "rajkot-02",
-      "at": "2026-07-29 10:00:00",
-      "reason": "persistence",
-      "detail": "2 of last 4 windows breached, need 3"
     },
     {
       "id": "A00001",
@@ -2573,31 +2602,31 @@
     },
     {
       "node": "rajkot-02",
-      "at": "2026-07-29 12:00:00",
-      "reason": "dwell",
-      "detail": "vacuum_sweeping dispatched 2026-07-29 11:00:00, dwell is 90 min"
+      "at": "2026-07-29 04:00:00",
+      "reason": "persistence",
+      "detail": "1 of last 4 windows breached, need 3"
     },
     {
-      "id": "A00002",
-      "node": "rajkot-02",
+      "id": "A00307",
+      "node": "rajkot-03",
       "source": "road_dust",
       "lever": "vacuum_sweeping",
       "owner": "ward_sanitation_supervisor",
-      "dispatched_at": "2026-07-29 13:00:00",
-      "recheck_at": "2026-07-29 14:52:30",
-      "trigger_value": 25.07498908856009,
+      "dispatched_at": "2026-07-29 12:00:00",
+      "recheck_at": "2026-07-29 13:52:30",
+      "trigger_value": 23.572939520145454,
       "trigger_sigma": 0.5,
       "threshold": 15.0,
       "evidence": {
         "posterior": {
           "construction": 0.0,
           "open_burning": 0.0,
-          "road_dust": 0.9996,
-          "secondary": 0.0004,
+          "road_dust": 0.999,
+          "secondary": 0.0009,
           "traffic_combustion": 0.0
         },
-        "coarse_ratio": 0.613,
-        "wind_from_deg": 263.0,
+        "coarse_ratio": 0.632,
+        "wind_from_deg": 251.0,
         "lever_effect_pct": 24.0,
         "lever_half_life_min": 150.0,
         "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
@@ -2607,32 +2636,32 @@
       "requires_signoff": true
     },
     {
-      "node": "rajkot-02",
-      "at": "2026-07-29 14:00:00",
-      "reason": "dwell",
-      "detail": "vacuum_sweeping dispatched 2026-07-29 13:00:00, dwell is 90 min"
+      "node": "rajkot-03",
+      "at": "2026-07-29 04:00:00",
+      "reason": "persistence",
+      "detail": "1 of last 4 windows breached, need 3"
     },
     {
-      "id": "A00003",
-      "node": "rajkot-02",
+      "id": "A00625",
+      "node": "rajkot-05",
       "source": "road_dust",
       "lever": "vacuum_sweeping",
       "owner": "ward_sanitation_supervisor",
-      "dispatched_at": "2026-07-29 15:00:00",
-      "recheck_at": "2026-07-29 16:52:30",
-      "trigger_value": 27.981551643798817,
-      "trigger_sigma": 0.8880335414694351,
+      "dispatched_at": "2026-07-29 12:00:00",
+      "recheck_at": "2026-07-29 13:52:30",
+      "trigger_value": 23.37502087035803,
+      "trigger_sigma": 0.5,
       "threshold": 15.0,
       "evidence": {
         "posterior": {
-          "construction": 0.0,
+          "construction": 0.0004,
           "open_burning": 0.0,
-          "road_dust": 0.9999,
+          "road_dust": 0.9995,
           "secondary": 0.0001,
           "traffic_combustion": 0.0
         },
-        "coarse_ratio": 0.622,
-        "wind_from_deg": 260.0,
+        "coarse_ratio": 0.693,
+        "wind_from_deg": 251.0,
         "lever_effect_pct": 24.0,
         "lever_half_life_min": 150.0,
         "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
@@ -2642,243 +2671,67 @@
       "requires_signoff": true
     },
     {
-      "node": "rajkot-02",
-      "at": "2026-07-29 16:00:00",
-      "reason": "dwell",
-      "detail": "vacuum_sweeping dispatched 2026-07-29 15:00:00, dwell is 90 min"
-    },
-    {
-      "id": "A00004",
-      "node": "rajkot-02",
-      "source": "road_dust",
-      "lever": "vacuum_sweeping",
-      "owner": "ward_sanitation_supervisor",
-      "dispatched_at": "2026-07-29 17:00:00",
-      "recheck_at": "2026-07-29 18:52:30",
-      "trigger_value": 30.77592707704051,
-      "trigger_sigma": 1.4559585658770546,
-      "threshold": 15.0,
-      "evidence": {
-        "posterior": {
-          "construction": 0.0,
-          "open_burning": 0.0,
-          "road_dust": 0.9997,
-          "secondary": 0.0003,
-          "traffic_combustion": 0.0
-        },
-        "coarse_ratio": 0.602,
-        "wind_from_deg": 274.0,
-        "lever_effect_pct": 24.0,
-        "lever_half_life_min": 150.0,
-        "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
-        "gate_min_posterior": 0.45,
-        "provenance": "digital-twin"
-      },
-      "requires_signoff": true
-    },
-    {
-      "node": "rajkot-02",
-      "at": "2026-07-29 18:00:00",
-      "reason": "dwell",
-      "detail": "vacuum_sweeping dispatched 2026-07-29 17:00:00, dwell is 90 min"
-    },
-    {
-      "id": "A00005",
-      "node": "rajkot-02",
-      "source": "road_dust",
-      "lever": "vacuum_sweeping",
-      "owner": "ward_sanitation_supervisor",
-      "dispatched_at": "2026-07-29 19:00:00",
-      "recheck_at": "2026-07-29 20:52:30",
-      "trigger_value": 26.931741270565077,
-      "trigger_sigma": 0.6202191691886808,
-      "threshold": 15.0,
-      "evidence": {
-        "posterior": {
-          "construction": 0.0,
-          "open_burning": 0.0,
-          "road_dust": 0.9929,
-          "secondary": 0.007,
-          "traffic_combustion": 0.0
-        },
-        "coarse_ratio": 0.534,
-        "wind_from_deg": 268.0,
-        "lever_effect_pct": 24.0,
-        "lever_half_life_min": 150.0,
-        "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
-        "gate_min_posterior": 0.45,
-        "provenance": "digital-twin"
-      },
-      "requires_signoff": true
-    },
-    {
-      "node": "rajkot-02",
-      "at": "2026-07-29 20:00:00",
-      "reason": "dwell",
-      "detail": "vacuum_sweeping dispatched 2026-07-29 19:00:00, dwell is 90 min"
-    },
-    {
-      "id": "A00006",
-      "node": "rajkot-02",
-      "source": "road_dust",
-      "lever": "vacuum_sweeping",
-      "owner": "ward_sanitation_supervisor",
-      "dispatched_at": "2026-07-29 21:00:00",
-      "recheck_at": "2026-07-29 22:52:30",
-      "trigger_value": 25.170222263547835,
-      "trigger_sigma": 0.5,
-      "threshold": 15.0,
-      "evidence": {
-        "posterior": {
-          "construction": 0.0,
-          "open_burning": 0.0,
-          "road_dust": 0.9538,
-          "secondary": 0.046,
-          "traffic_combustion": 0.0001
-        },
-        "coarse_ratio": 0.506,
-        "wind_from_deg": 245.0,
-        "lever_effect_pct": 24.0,
-        "lever_half_life_min": 150.0,
-        "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
-        "gate_min_posterior": 0.45,
-        "provenance": "digital-twin"
-      },
-      "requires_signoff": true
-    },
-    {
-      "node": "rajkot-02",
-      "at": "2026-07-29 22:00:00",
-      "reason": "dwell",
-      "detail": "vacuum_sweeping dispatched 2026-07-29 21:00:00, dwell is 90 min"
-    },
-    {
-      "id": "A00007",
-      "node": "rajkot-02",
-      "source": "road_dust",
-      "lever": "vacuum_sweeping",
-      "owner": "ward_sanitation_supervisor",
-      "dispatched_at": "2026-07-29 23:00:00",
-      "recheck_at": "2026-07-30 00:52:30",
-      "trigger_value": 22.533179635338808,
-      "trigger_sigma": 0.5,
-      "threshold": 15.0,
-      "evidence": {
-        "posterior": {
-          "construction": 0.0,
-          "open_burning": 0.0,
-          "road_dust": 0.9014,
-          "secondary": 0.0984,
-          "traffic_combustion": 0.0001
-        },
-        "coarse_ratio": 0.491,
-        "wind_from_deg": 249.0,
-        "lever_effect_pct": 24.0,
-        "lever_half_life_min": 150.0,
-        "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
-        "gate_min_posterior": 0.45,
-        "provenance": "digital-twin"
-      },
-      "requires_signoff": true
-    },
-    {
-      "node": "rajkot-02",
-      "at": "2026-07-30 00:00:00",
-      "reason": "dwell",
-      "detail": "vacuum_sweeping dispatched 2026-07-29 23:00:00, dwell is 90 min"
-    },
-    {
-      "id": "A00008",
-      "node": "rajkot-02",
-      "source": "road_dust",
-      "lever": "vacuum_sweeping",
-      "owner": "ward_sanitation_supervisor",
-      "dispatched_at": "2026-07-30 01:00:00",
-      "recheck_at": "2026-07-30 02:52:30",
-      "trigger_value": 17.45232311966582,
-      "trigger_sigma": 0.5,
-      "threshold": 15.0,
-      "evidence": {
-        "posterior": {
-          "construction": 0.0,
-          "open_burning": 0.0,
-          "road_dust": 0.8752,
-          "secondary": 0.1247,
-          "traffic_combustion": 0.0001
-        },
-        "coarse_ratio": 0.487,
-        "wind_from_deg": 249.0,
-        "lever_effect_pct": 24.0,
-        "lever_half_life_min": 150.0,
-        "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
-        "gate_min_posterior": 0.45,
-        "provenance": "digital-twin"
-      },
-      "requires_signoff": true
-    },
-    {
-      "node": "rajkot-02",
-      "at": "2026-07-30 02:00:00",
-      "reason": "uncertainty",
-      "detail": "interval low 14.6 does not exclude threshold 15.0"
-    },
-    {
-      "node": "rajkot-02",
-      "at": "2026-07-30 03:00:00",
-      "reason": "uncertainty",
-      "detail": "interval low 13.9 does not exclude threshold 15.0"
-    },
-    {
-      "node": "rajkot-02",
-      "at": "2026-07-30 04:00:00",
+      "node": "rajkot-05",
+      "at": "2026-07-29 04:00:00",
       "reason": "persistence",
-      "detail": "2 of last 4 windows breached, need 3"
+      "detail": "1 of last 4 windows breached, need 3"
     },
     {
-      "node": "rajkot-02",
-      "at": "2026-07-30 05:00:00",
-      "reason": "refused_by_evidence",
-      "detail": "secondary has no local lever: acting on it would spend the budget on advection"
+      "id": "A00982",
+      "node": "rajkot-06",
+      "source": "road_dust",
+      "lever": "vacuum_sweeping",
+      "owner": "ward_sanitation_supervisor",
+      "dispatched_at": "2026-07-29 11:00:00",
+      "recheck_at": "2026-07-29 12:52:30",
+      "trigger_value": 20.846084291389307,
+      "trigger_sigma": 0.5,
+      "threshold": 15.0,
+      "evidence": {
+        "posterior": {
+          "construction": 0.0,
+          "open_burning": 0.0001,
+          "road_dust": 0.9977,
+          "secondary": 0.0023,
+          "traffic_combustion": 0.0
+        },
+        "coarse_ratio": 0.608,
+        "wind_from_deg": 258.0,
+        "lever_effect_pct": 24.0,
+        "lever_half_life_min": 150.0,
+        "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
+        "gate_min_posterior": 0.45,
+        "provenance": "digital-twin"
+      },
+      "requires_signoff": true
     },
     {
-      "node": "rajkot-02",
-      "at": "2026-07-30 06:00:00",
-      "reason": "refused_by_evidence",
-      "detail": "secondary has no local lever: acting on it would spend the budget on advection"
-    },
-    {
-      "node": "rajkot-02",
-      "at": "2026-07-30 07:00:00",
-      "reason": "refused_by_evidence",
-      "detail": "secondary has no local lever: acting on it would spend the budget on advection"
-    },
-    {
-      "node": "rajkot-02",
-      "at": "2026-07-30 08:00:00",
+      "node": "rajkot-06",
+      "at": "2026-07-29 04:00:00",
       "reason": "persistence",
-      "detail": "2 of last 4 windows breached, need 3"
+      "detail": "1 of last 4 windows breached, need 3"
     },
     {
-      "id": "A00009",
-      "node": "rajkot-02",
+      "id": "A01284",
+      "node": "rajkot-07",
       "source": "road_dust",
       "lever": "vacuum_sweeping",
       "owner": "ward_sanitation_supervisor",
-      "dispatched_at": "2026-07-30 09:00:00",
-      "recheck_at": "2026-07-30 10:52:30",
-      "trigger_value": 18.634128708544917,
+      "dispatched_at": "2026-07-29 12:00:00",
+      "recheck_at": "2026-07-29 13:52:30",
+      "trigger_value": 23.55348776652111,
       "trigger_sigma": 0.5,
       "threshold": 15.0,
       "evidence": {
         "posterior": {
-          "construction": 0.0189,
+          "construction": 0.0001,
           "open_burning": 0.0,
-          "road_dust": 0.9545,
-          "secondary": 0.0266,
+          "road_dust": 0.9994,
+          "secondary": 0.0005,
           "traffic_combustion": 0.0
         },
-        "coarse_ratio": 0.603,
-        "wind_from_deg": 266.0,
+        "coarse_ratio": 0.642,
+        "wind_from_deg": 251.0,
         "lever_effect_pct": 24.0,
         "lever_half_life_min": 150.0,
         "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
@@ -2888,32 +2741,32 @@
       "requires_signoff": true
     },
     {
-      "node": "rajkot-02",
-      "at": "2026-07-30 10:00:00",
-      "reason": "dwell",
-      "detail": "vacuum_sweeping dispatched 2026-07-30 09:00:00, dwell is 90 min"
+      "node": "rajkot-07",
+      "at": "2026-07-29 04:00:00",
+      "reason": "persistence",
+      "detail": "1 of last 4 windows breached, need 3"
     },
     {
-      "id": "A00010",
-      "node": "rajkot-02",
+      "id": "A01598",
+      "node": "rajkot-08",
       "source": "road_dust",
       "lever": "vacuum_sweeping",
       "owner": "ward_sanitation_supervisor",
-      "dispatched_at": "2026-07-30 11:00:00",
-      "recheck_at": "2026-07-30 12:52:30",
-      "trigger_value": 22.25601512607599,
+      "dispatched_at": "2026-07-29 11:00:00",
+      "recheck_at": "2026-07-29 12:52:30",
+      "trigger_value": 20.536209383819614,
       "trigger_sigma": 0.5,
       "threshold": 15.0,
       "evidence": {
         "posterior": {
-          "construction": 0.0452,
+          "construction": 0.0001,
           "open_burning": 0.0,
-          "road_dust": 0.9544,
-          "secondary": 0.0004,
+          "road_dust": 0.999,
+          "secondary": 0.0009,
           "traffic_combustion": 0.0
         },
-        "coarse_ratio": 0.654,
-        "wind_from_deg": 270.0,
+        "coarse_ratio": 0.618,
+        "wind_from_deg": 258.0,
         "lever_effect_pct": 24.0,
         "lever_half_life_min": 150.0,
         "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
@@ -2923,32 +2776,32 @@
       "requires_signoff": true
     },
     {
-      "node": "rajkot-02",
-      "at": "2026-07-30 12:00:00",
-      "reason": "dwell",
-      "detail": "vacuum_sweeping dispatched 2026-07-30 11:00:00, dwell is 90 min"
+      "node": "rajkot-08",
+      "at": "2026-07-29 04:00:00",
+      "reason": "persistence",
+      "detail": "1 of last 4 windows breached, need 3"
     },
     {
-      "id": "A00011",
-      "node": "rajkot-02",
+      "id": "A01929",
+      "node": "rajkot-10",
       "source": "road_dust",
       "lever": "vacuum_sweeping",
       "owner": "ward_sanitation_supervisor",
-      "dispatched_at": "2026-07-30 13:00:00",
-      "recheck_at": "2026-07-30 14:52:30",
-      "trigger_value": 27.531156838675155,
-      "trigger_sigma": 1.168120598431018,
+      "dispatched_at": "2026-07-29 11:00:00",
+      "recheck_at": "2026-07-29 12:52:30",
+      "trigger_value": 20.64869550131985,
+      "trigger_sigma": 0.5,
       "threshold": 15.0,
       "evidence": {
         "posterior": {
-          "construction": 0.0098,
+          "construction": 0.0001,
           "open_burning": 0.0,
-          "road_dust": 0.9902,
-          "secondary": 0.0,
+          "road_dust": 0.9989,
+          "secondary": 0.001,
           "traffic_combustion": 0.0
         },
-        "coarse_ratio": 0.681,
-        "wind_from_deg": 271.0,
+        "coarse_ratio": 0.631,
+        "wind_from_deg": 258.0,
         "lever_effect_pct": 24.0,
         "lever_half_life_min": 150.0,
         "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
@@ -2958,67 +2811,32 @@
       "requires_signoff": true
     },
     {
-      "node": "rajkot-02",
-      "at": "2026-07-30 14:00:00",
-      "reason": "dwell",
-      "detail": "vacuum_sweeping dispatched 2026-07-30 13:00:00, dwell is 90 min"
+      "node": "rajkot-10",
+      "at": "2026-07-29 04:00:00",
+      "reason": "persistence",
+      "detail": "1 of last 4 windows breached, need 3"
     },
     {
-      "id": "A00012",
-      "node": "rajkot-02",
+      "id": "A02304",
+      "node": "rajkot-11",
       "source": "road_dust",
       "lever": "vacuum_sweeping",
       "owner": "ward_sanitation_supervisor",
-      "dispatched_at": "2026-07-30 15:00:00",
-      "recheck_at": "2026-07-30 16:52:30",
-      "trigger_value": 30.69720932248231,
-      "trigger_sigma": 1.9654847907238422,
-      "threshold": 15.0,
-      "evidence": {
-        "posterior": {
-          "construction": 0.002,
-          "open_burning": 0.0,
-          "road_dust": 0.998,
-          "secondary": 0.0001,
-          "traffic_combustion": 0.0
-        },
-        "coarse_ratio": 0.668,
-        "wind_from_deg": 278.0,
-        "lever_effect_pct": 24.0,
-        "lever_half_life_min": 150.0,
-        "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
-        "gate_min_posterior": 0.45,
-        "provenance": "digital-twin"
-      },
-      "requires_signoff": true
-    },
-    {
-      "node": "rajkot-02",
-      "at": "2026-07-30 16:00:00",
-      "reason": "dwell",
-      "detail": "vacuum_sweeping dispatched 2026-07-30 15:00:00, dwell is 90 min"
-    },
-    {
-      "id": "A00013",
-      "node": "rajkot-02",
-      "source": "road_dust",
-      "lever": "vacuum_sweeping",
-      "owner": "ward_sanitation_supervisor",
-      "dispatched_at": "2026-07-30 17:00:00",
-      "recheck_at": "2026-07-30 18:52:30",
-      "trigger_value": 32.37228806680784,
-      "trigger_sigma": 1.9654847907238422,
+      "dispatched_at": "2026-07-29 11:00:00",
+      "recheck_at": "2026-07-29 12:52:30",
+      "trigger_value": 20.774316553722414,
+      "trigger_sigma": 0.5,
       "threshold": 15.0,
       "evidence": {
         "posterior": {
           "construction": 0.0002,
           "open_burning": 0.0,
-          "road_dust": 0.9997,
-          "secondary": 0.0001,
+          "road_dust": 0.9993,
+          "secondary": 0.0005,
           "traffic_combustion": 0.0
         },
-        "coarse_ratio": 0.638,
-        "wind_from_deg": 290.0,
+        "coarse_ratio": 0.649,
+        "wind_from_deg": 258.0,
         "lever_effect_pct": 24.0,
         "lever_half_life_min": 150.0,
         "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
@@ -3028,32 +2846,347 @@
       "requires_signoff": true
     },
     {
-      "node": "rajkot-02",
-      "at": "2026-07-30 18:00:00",
-      "reason": "dwell",
-      "detail": "vacuum_sweeping dispatched 2026-07-30 17:00:00, dwell is 90 min"
+      "node": "rajkot-11",
+      "at": "2026-07-29 04:00:00",
+      "reason": "persistence",
+      "detail": "1 of last 4 windows breached, need 3"
     },
     {
-      "id": "A00014",
-      "node": "rajkot-02",
+      "id": "A02685",
+      "node": "rajkot-12",
       "source": "road_dust",
       "lever": "vacuum_sweeping",
       "owner": "ward_sanitation_supervisor",
-      "dispatched_at": "2026-07-30 19:00:00",
-      "recheck_at": "2026-07-30 20:52:30",
-      "trigger_value": 33.067278431675135,
-      "trigger_sigma": 2.2923917481459295,
+      "dispatched_at": "2026-07-29 11:00:00",
+      "recheck_at": "2026-07-29 12:52:30",
+      "trigger_value": 20.64879107563185,
+      "trigger_sigma": 0.5,
+      "threshold": 15.0,
+      "evidence": {
+        "posterior": {
+          "construction": 0.0001,
+          "open_burning": 0.0,
+          "road_dust": 0.999,
+          "secondary": 0.0009,
+          "traffic_combustion": 0.0
+        },
+        "coarse_ratio": 0.634,
+        "wind_from_deg": 258.0,
+        "lever_effect_pct": 24.0,
+        "lever_half_life_min": 150.0,
+        "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
+        "gate_min_posterior": 0.45,
+        "provenance": "digital-twin"
+      },
+      "requires_signoff": true
+    },
+    {
+      "node": "rajkot-12",
+      "at": "2026-07-29 04:00:00",
+      "reason": "persistence",
+      "detail": "1 of last 4 windows breached, need 3"
+    },
+    {
+      "id": "A03002",
+      "node": "rajkot-13",
+      "source": "road_dust",
+      "lever": "vacuum_sweeping",
+      "owner": "ward_sanitation_supervisor",
+      "dispatched_at": "2026-07-29 12:00:00",
+      "recheck_at": "2026-07-29 13:52:30",
+      "trigger_value": 23.353640729397828,
+      "trigger_sigma": 0.5,
+      "threshold": 15.0,
+      "evidence": {
+        "posterior": {
+          "construction": 0.0001,
+          "open_burning": 0.0,
+          "road_dust": 0.9994,
+          "secondary": 0.0004,
+          "traffic_combustion": 0.0
+        },
+        "coarse_ratio": 0.65,
+        "wind_from_deg": 251.0,
+        "lever_effect_pct": 24.0,
+        "lever_half_life_min": 150.0,
+        "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
+        "gate_min_posterior": 0.45,
+        "provenance": "digital-twin"
+      },
+      "requires_signoff": true
+    },
+    {
+      "node": "rajkot-13",
+      "at": "2026-07-29 04:00:00",
+      "reason": "persistence",
+      "detail": "1 of last 4 windows breached, need 3"
+    },
+    {
+      "id": "A03327",
+      "node": "rajkot-15",
+      "source": "road_dust",
+      "lever": "vacuum_sweeping",
+      "owner": "ward_sanitation_supervisor",
+      "dispatched_at": "2026-07-29 11:00:00",
+      "recheck_at": "2026-07-29 12:52:30",
+      "trigger_value": 20.839750076413324,
+      "trigger_sigma": 0.5,
+      "threshold": 15.0,
+      "evidence": {
+        "posterior": {
+          "construction": 0.0001,
+          "open_burning": 0.0,
+          "road_dust": 0.9984,
+          "secondary": 0.0015,
+          "traffic_combustion": 0.0
+        },
+        "coarse_ratio": 0.608,
+        "wind_from_deg": 258.0,
+        "lever_effect_pct": 24.0,
+        "lever_half_life_min": 150.0,
+        "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
+        "gate_min_posterior": 0.45,
+        "provenance": "digital-twin"
+      },
+      "requires_signoff": true
+    },
+    {
+      "node": "rajkot-15",
+      "at": "2026-07-29 04:00:00",
+      "reason": "persistence",
+      "detail": "1 of last 4 windows breached, need 3"
+    },
+    {
+      "id": "A03641",
+      "node": "rajkot-16",
+      "source": "road_dust",
+      "lever": "vacuum_sweeping",
+      "owner": "ward_sanitation_supervisor",
+      "dispatched_at": "2026-07-29 12:00:00",
+      "recheck_at": "2026-07-29 13:52:30",
+      "trigger_value": 23.327091645262225,
+      "trigger_sigma": 0.5,
+      "threshold": 15.0,
+      "evidence": {
+        "posterior": {
+          "construction": 0.0004,
+          "open_burning": 0.0,
+          "road_dust": 0.9995,
+          "secondary": 0.0002,
+          "traffic_combustion": 0.0
+        },
+        "coarse_ratio": 0.672,
+        "wind_from_deg": 251.0,
+        "lever_effect_pct": 24.0,
+        "lever_half_life_min": 150.0,
+        "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
+        "gate_min_posterior": 0.45,
+        "provenance": "digital-twin"
+      },
+      "requires_signoff": true
+    },
+    {
+      "node": "rajkot-16",
+      "at": "2026-07-29 04:00:00",
+      "reason": "persistence",
+      "detail": "1 of last 4 windows breached, need 3"
+    },
+    {
+      "id": "A03983",
+      "node": "rajkot-17",
+      "source": "road_dust",
+      "lever": "vacuum_sweeping",
+      "owner": "ward_sanitation_supervisor",
+      "dispatched_at": "2026-07-29 12:00:00",
+      "recheck_at": "2026-07-29 13:52:30",
+      "trigger_value": 23.1530249756173,
+      "trigger_sigma": 0.5,
+      "threshold": 15.0,
+      "evidence": {
+        "posterior": {
+          "construction": 0.0007,
+          "open_burning": 0.0,
+          "road_dust": 0.9992,
+          "secondary": 0.0001,
+          "traffic_combustion": 0.0
+        },
+        "coarse_ratio": 0.685,
+        "wind_from_deg": 251.0,
+        "lever_effect_pct": 24.0,
+        "lever_half_life_min": 150.0,
+        "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
+        "gate_min_posterior": 0.45,
+        "provenance": "digital-twin"
+      },
+      "requires_signoff": true
+    },
+    {
+      "node": "rajkot-17",
+      "at": "2026-07-29 04:00:00",
+      "reason": "persistence",
+      "detail": "1 of last 4 windows breached, need 3"
+    },
+    {
+      "id": "A04340",
+      "node": "rajkot-18",
+      "source": "road_dust",
+      "lever": "vacuum_sweeping",
+      "owner": "ward_sanitation_supervisor",
+      "dispatched_at": "2026-07-29 11:00:00",
+      "recheck_at": "2026-07-29 12:52:30",
+      "trigger_value": 20.877671330194563,
+      "trigger_sigma": 0.5,
+      "threshold": 15.0,
+      "evidence": {
+        "posterior": {
+          "construction": 0.0007,
+          "open_burning": 0.0,
+          "road_dust": 0.9991,
+          "secondary": 0.0002,
+          "traffic_combustion": 0.0
+        },
+        "coarse_ratio": 0.674,
+        "wind_from_deg": 258.0,
+        "lever_effect_pct": 24.0,
+        "lever_half_life_min": 150.0,
+        "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
+        "gate_min_posterior": 0.45,
+        "provenance": "digital-twin"
+      },
+      "requires_signoff": true
+    },
+    {
+      "node": "rajkot-18",
+      "at": "2026-07-29 04:00:00",
+      "reason": "persistence",
+      "detail": "1 of last 4 windows breached, need 3"
+    },
+    {
+      "id": "A04689",
+      "node": "rajkot-20",
+      "source": "road_dust",
+      "lever": "vacuum_sweeping",
+      "owner": "ward_sanitation_supervisor",
+      "dispatched_at": "2026-07-29 11:00:00",
+      "recheck_at": "2026-07-29 12:52:30",
+      "trigger_value": 20.971632367517323,
+      "trigger_sigma": 0.5,
+      "threshold": 15.0,
+      "evidence": {
+        "posterior": {
+          "construction": 0.0001,
+          "open_burning": 0.0,
+          "road_dust": 0.9981,
+          "secondary": 0.0018,
+          "traffic_combustion": 0.0
+        },
+        "coarse_ratio": 0.608,
+        "wind_from_deg": 258.0,
+        "lever_effect_pct": 24.0,
+        "lever_half_life_min": 150.0,
+        "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
+        "gate_min_posterior": 0.45,
+        "provenance": "digital-twin"
+      },
+      "requires_signoff": true
+    },
+    {
+      "node": "rajkot-20",
+      "at": "2026-07-29 04:00:00",
+      "reason": "persistence",
+      "detail": "1 of last 4 windows breached, need 3"
+    },
+    {
+      "id": "A05002",
+      "node": "rajkot-21",
+      "source": "road_dust",
+      "lever": "vacuum_sweeping",
+      "owner": "ward_sanitation_supervisor",
+      "dispatched_at": "2026-07-29 11:00:00",
+      "recheck_at": "2026-07-29 12:52:30",
+      "trigger_value": 20.783511534919015,
+      "trigger_sigma": 0.5,
+      "threshold": 15.0,
+      "evidence": {
+        "posterior": {
+          "construction": 0.0001,
+          "open_burning": 0.0,
+          "road_dust": 0.9991,
+          "secondary": 0.0007,
+          "traffic_combustion": 0.0
+        },
+        "coarse_ratio": 0.635,
+        "wind_from_deg": 258.0,
+        "lever_effect_pct": 24.0,
+        "lever_half_life_min": 150.0,
+        "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
+        "gate_min_posterior": 0.45,
+        "provenance": "digital-twin"
+      },
+      "requires_signoff": true
+    },
+    {
+      "node": "rajkot-21",
+      "at": "2026-07-29 04:00:00",
+      "reason": "persistence",
+      "detail": "1 of last 4 windows breached, need 3"
+    },
+    {
+      "id": "A05325",
+      "node": "rajkot-22",
+      "source": "road_dust",
+      "lever": "vacuum_sweeping",
+      "owner": "ward_sanitation_supervisor",
+      "dispatched_at": "2026-07-29 11:00:00",
+      "recheck_at": "2026-07-29 12:52:30",
+      "trigger_value": 20.687393348499267,
+      "trigger_sigma": 0.5,
+      "threshold": 15.0,
+      "evidence": {
+        "posterior": {
+          "construction": 0.0141,
+          "open_burning": 0.0,
+          "road_dust": 0.9859,
+          "secondary": 0.0,
+          "traffic_combustion": 0.0
+        },
+        "coarse_ratio": 0.712,
+        "wind_from_deg": 258.0,
+        "lever_effect_pct": 24.0,
+        "lever_half_life_min": 150.0,
+        "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
+        "gate_min_posterior": 0.45,
+        "provenance": "digital-twin"
+      },
+      "requires_signoff": true
+    },
+    {
+      "node": "rajkot-22",
+      "at": "2026-07-29 04:00:00",
+      "reason": "persistence",
+      "detail": "1 of last 4 windows breached, need 3"
+    },
+    {
+      "id": "A05713",
+      "node": "rajkot-23",
+      "source": "road_dust",
+      "lever": "vacuum_sweeping",
+      "owner": "ward_sanitation_supervisor",
+      "dispatched_at": "2026-07-29 12:00:00",
+      "recheck_at": "2026-07-29 13:52:30",
+      "trigger_value": 23.340809266251096,
+      "trigger_sigma": 0.5,
       "threshold": 15.0,
       "evidence": {
         "posterior": {
           "construction": 0.0,
           "open_burning": 0.0,
-          "road_dust": 0.9487,
-          "secondary": 0.0512,
-          "traffic_combustion": 0.0001
+          "road_dust": 0.9988,
+          "secondary": 0.0011,
+          "traffic_combustion": 0.0
         },
-        "coarse_ratio": 0.543,
-        "wind_from_deg": 299.0,
+        "coarse_ratio": 0.617,
+        "wind_from_deg": 251.0,
         "lever_effect_pct": 24.0,
         "lever_half_life_min": 150.0,
         "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
@@ -3061,6 +3194,12 @@
         "provenance": "digital-twin"
       },
       "requires_signoff": true
+    },
+    {
+      "node": "rajkot-23",
+      "at": "2026-07-29 04:00:00",
+      "reason": "persistence",
+      "detail": "1 of last 4 windows breached, need 3"
     }
   ],
   "drift": {

@@ -86,19 +86,19 @@ Relative skill rises with horizon because the persistence baseline degrades fast
 
 ## 5. Response engine
 
-- Dispatches: **739**
-- Suppressed: **3299**
+- Dispatches: **14224**
+- Suppressed: **56656**
 - Zones tracked: 40
 - Human sign-off required: True
 
 | Gate that stopped it | Count |
 | --- | --- |
-| not_armed | 1522 |
-| refused_by_evidence | 707 |
-| dwell | 631 |
-| persistence | 355 |
-| uncertainty | 80 |
-| unknown_source | 4 |
+| not_armed | 26315 |
+| dwell | 11392 |
+| refused_by_evidence | 10185 |
+| persistence | 6369 |
+| uncertainty | 2287 |
+| unknown_source | 108 |
 
 The suppression ledger is the point of this table. A dispatcher who receives the same alert forty times in a night stops reading it, so the gates have to be auditable for what they cost as well as what they prevented.
 
