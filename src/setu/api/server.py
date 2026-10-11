@@ -16,11 +16,21 @@ from fastapi.staticfiles import StaticFiles
 
 from ..config import load_action_table, load_site
 from ..grid import build_lattice, holdout, instrumented
-from ..report import RESULTS_DIR
+from ..report import RESULTS_DIR, calibration_summary, standard_for
 
 # server.py sits at <repo>/src/setu/api/server.py, so the repository root is
 # four levels up - parents[2] resolves to src/ and the dashboard silently 404s.
 DASHBOARD_DIR = Path(__file__).resolve().parents[3] / "dashboard"
+
+
+class NoStoreStaticFiles(StaticFiles):
+    """StaticFiles in the installed Starlette takes no `headers=` argument, so
+    the cache directive is applied per response instead."""
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
 
 def _load_results(site: str) -> dict:
@@ -53,7 +63,7 @@ def build_app(site_name: str = "rajkot") -> FastAPI:
         target = DASHBOARD_DIR / "index.html"
         if not target.exists():
             raise HTTPException(status_code=404, detail="dashboard missing")
-        return FileResponse(target)
+        return FileResponse(target, headers={"Cache-Control": "no-store"})
 
     # ------------------------------------------------------------ metadata
     @app.get("/api/site")
@@ -138,7 +148,14 @@ def build_app(site_name: str = "rajkot") -> FastAPI:
         results = _load_results(site_name)
         return {
             "summary": results["summary"],
-            "calibration": results["calibration"][:1],
+            # The panel is titled with run-wide claims, so it gets run-wide
+            # numbers. `example` is one node's row, labelled as such, for the
+            # drill-down; it is not what the headline row quotes.
+            "calibration": {
+                "mean": calibration_summary(results["calibration"]),
+                "example": results["calibration"][0] if results["calibration"] else None,
+            },
+            "action_standard": standard_for(results["summary"]["threshold_ugm3"]),
             "transfer": results["transfer"],
             "attribution": results["attribution"],
             "forecast": results["forecast"],
@@ -157,6 +174,12 @@ def build_app(site_name: str = "rajkot") -> FastAPI:
                 (RESULTS_DIR / "validation.json").exists()}
 
     if DASHBOARD_DIR.exists():
-        app.mount("/static", StaticFiles(directory=str(DASHBOARD_DIR)),
+        # no-store, deliberately. The console is edited between demo runs, and a
+        # browser holding an old app.js against a changed API shape renders
+        # "n/a" under correct-looking headings - which reads as a broken pipeline
+        # rather than a stale cache. Nothing here is large enough to merit
+        # caching on a localhost demo.
+        app.mount("/static",
+                  NoStoreStaticFiles(directory=str(DASHBOARD_DIR)),
                   name="static")
     return app

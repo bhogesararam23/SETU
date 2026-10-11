@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SETU — operator console</title>
-<link rel="stylesheet" href="/static/styles.css">
+<!-- ?v=2 busts the copy browsers cached before the server sent
+     Cache-Control: no-store. Bump it if a stale console ever reappears. -->
+<link rel="stylesheet" href="/static/styles.css?v=2">
 </head>
 <body>
 <header>
@@ -117,6 +119,6 @@
   <span class="muted">no API keys · real background from Open-Meteo CAMS + IFS</span>
 </footer>
 
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v=2"></script>
 </body>
 </html>

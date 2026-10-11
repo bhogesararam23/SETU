@@ -170,8 +170,16 @@ function renderLedger(payload) {
 }
 
 function renderValidation(v) {
-  const c = (v.calibration || [])[0] || {};
-  const before = c.before || {}, after = c.after || {};
+  // v.calibration.mean is the average over every node in the run. Reading one
+  // node's row here made the console disagree with results/VALIDATION.md under
+  // an identical label, so the aggregate is now served deliberately.
+  const c = (v.calibration || {}).mean || {};
+  const before = {}, after = {};
+  for (const k of ["mae", "rmse", "nmae", "r2", "bias", "threshold_accuracy"]) {
+    before[k] = c["before_" + k];
+    after[k] = c["after_" + k];
+  }
+  const standard = v.action_standard || "action level";
   const att = v.attribution || {};
   const f1 = (v.forecast || []).find((r) => r.horizon_h === 1) || {};
   const t = v.transfer || {};
@@ -181,9 +189,10 @@ function renderValidation(v) {
       (after.mae != null && before.mae != null && after.mae < before.mae)],
     ["Calibration R²", `${fmt(before.r2, 2)} → ${fmt(after.r2, 2)}`,
       (after.r2 != null && after.r2 > 0.5)],
-    ["Threshold accuracy @ NAAQS", `${fmt(before.threshold_accuracy, 3)} → ${fmt(after.threshold_accuracy, 3)}`,
+    [`Threshold accuracy @ ${fmt((v.summary || {}).threshold_ugm3, 0)} µg/m³`,
+      `${fmt(before.threshold_accuracy, 3)} → ${fmt(after.threshold_accuracy, 3)} (${standard})`,
       (after.threshold_accuracy ?? 0) > 0.9],
-    ["Interval coverage", `${fmt(c.interval_coverage, 3)} (nominal 0.80)`,
+    ["Interval coverage (mean)", `${fmt(c.interval_coverage, 3)} (nominal 0.80)`,
       (c.interval_coverage ?? 0) >= 0.7],
     ["Transfer, never co-located",
       t.nodes_transferred ? `MAE ${fmt(t.mean_mae_before, 2)} → ${fmt(t.mean_mae_after, 2)} µg/m³` : "n/a",
@@ -211,7 +220,8 @@ function renderValidation(v) {
 
   const w = v.summary || {};
   $("window-label").textContent =
-    `${w.hours ?? "?"} real hours · ${w.nodes ?? "?"} nodes · threshold ${fmt(w.threshold_ugm3, 0)} µg/m³`;
+    `${w.hours ?? "?"} real hours · ${w.nodes ?? "?"} nodes · threshold ` +
+    `${fmt(w.threshold_ugm3, 0)} µg/m³ (${standard})`;
 }
 
 function renderEqualCost(ec) {
