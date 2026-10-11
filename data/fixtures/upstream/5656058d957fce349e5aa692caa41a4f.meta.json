@@ -1,0 +1,1 @@
+{"url": "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=22.3039&longitude=70.7962&hourly=pm2_5,pm10,carbon_monoxide,nitrogen_dioxide,ozone,sulphur_dioxide,dust,aerosol_optical_depth&past_days=30&forecast_days=0&timezone=Asia/Kolkata&wind_speed_unit=ms", "fetched_at": 1791667234.3705616}

@@ -1,6 +1,7 @@
 """The cache is what makes a demo reproducible; it has to be tested properly."""
 
 import json
+import shutil
 import time
 
 import pytest
@@ -151,3 +152,68 @@ def test_user_agent_identifies_the_project():
     sess = requests.Session()
     sess.headers.update({"User-Agent": cache_mod.USER_AGENT})
     assert "SETU" in sess.headers["User-Agent"]
+
+
+def test_cache_dir_env_moves_the_whole_cache_without_a_code_change(tmp_path,
+                                                                   monkeypatch):
+    """CI reads the committed snapshot through this. If the override were ignored,
+    CI would try to reach the network it is explicitly not allowed to reach."""
+    elsewhere = tmp_path / "snapshot"
+    monkeypatch.setenv(cache_mod.CACHE_DIR_ENV, str(elsewhere))
+    assert cache_mod.default_cache_dir() == elsewhere
+    assert cache_mod.HttpCache().dir == elsewhere
+
+
+def test_explicit_directory_beats_the_env(monkeypatch, tmp_path):
+    monkeypatch.setenv(cache_mod.CACHE_DIR_ENV, str(tmp_path / "from_env"))
+    chosen = tmp_path / "chosen"
+    assert cache_mod.HttpCache(directory=chosen).dir == chosen
+
+
+def test_no_env_means_the_working_cache(tmp_path, monkeypatch):
+    monkeypatch.setenv(cache_mod.CACHE_DIR_ENV, "   ")
+    assert cache_mod.default_cache_dir() == cache_mod.DEFAULT_CACHE_DIR
+
+
+def test_the_committed_snapshot_replays_offline(tmp_path, monkeypatch):
+    """CI and the README's reproduction command both read
+    data/fixtures/upstream with SETU_OFFLINE=1. This replays a real request
+    through that path, so if the snapshot stops resolving, the test fails here
+    instead of in front of a judge.
+
+    The point is not that a file exists - it is that an *expired* entry is still
+    served when egress is forbidden, which is the only reason a checked-in
+    snapshot is usable at all. The snapshot is copied into a temp dir and aged
+    there; the committed provenance record is never touched.
+    """
+    source = cache_mod.DEFAULT_CACHE_DIR.parents[0] / "fixtures" / "upstream"
+    metas = sorted(source.glob("*.meta.json"))
+    if not metas:
+        pytest.skip("snapshot not present in this checkout")
+
+    meta = json.loads(metas[0].read_text(encoding="utf-8"))
+    key = metas[0].name[: -len(".meta.json")]        # <hash>.meta.json -> <hash>
+    shutil.copy(metas[0].parent / f"{key}.json", tmp_path / f"{key}.json")
+    aged = dict(meta, fetched_at=time.time() - 400 * 24 * 3600)
+    (tmp_path / metas[0].name).write_text(json.dumps(aged), encoding="utf-8")
+
+    monkeypatch.setenv(cache_mod.OFFLINE_ENV, "1")
+    cache = HttpCache(directory=tmp_path)
+
+    # Nine months old, so nothing but offline mode can serve it.
+    got = cache.get_json(meta["url"], ttl_seconds=6 * 3600)
+
+    assert got.from_cache is True
+    assert got.url == meta["url"]
+    assert got.payload.get("hourly"), "snapshot entry carries no hourly block"
+    assert got.age_seconds > 300 * 24 * 3600
+
+
+def test_offline_mode_still_refuses_a_url_that_was_never_fetched(monkeypatch,
+                                                                 tmp_path):
+    """A snapshot is not a substitute for data that was never collected. Serving
+    a fabricated payload here would be the worst possible failure mode."""
+    monkeypatch.setenv(cache_mod.OFFLINE_ENV, "1")
+    cache = HttpCache(directory=tmp_path / "empty")
+    with pytest.raises(UpstreamUnavailable):
+        cache.get_json("https://example.test/never-fetched", ttl_seconds=60)

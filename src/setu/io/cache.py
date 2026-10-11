@@ -36,6 +36,16 @@ USER_AGENT = "SETU-air-prototype/0.1 (student competition prototype; +https://gi
 #: Set SETU_OFFLINE=1 to forbid all network access, e.g. on a demo machine.
 OFFLINE_ENV = "SETU_OFFLINE"
 
+#: Point the cache somewhere else without touching code. CI uses this to read
+#: the committed snapshot in data/fixtures/upstream, so the whole pipeline runs
+#: with no network and no keys.
+CACHE_DIR_ENV = "SETU_CACHE_DIR"
+
+
+def default_cache_dir() -> Path:
+    override = os.environ.get(CACHE_DIR_ENV, "").strip()
+    return Path(override) if override else DEFAULT_CACHE_DIR
+
 
 @dataclasses.dataclass(frozen=True)
 class CachedResponse:
@@ -65,9 +75,9 @@ def offline_only() -> bool:
 
 
 class HttpCache:
-    def __init__(self, directory: Path | str = DEFAULT_CACHE_DIR,
+    def __init__(self, directory: Path | str | None = None,
                  session: requests.Session | None = None):
-        self.dir = Path(directory)
+        self.dir = Path(directory) if directory is not None else default_cache_dir()
         self._session = session
 
     # -- plumbing ---------------------------------------------------------
