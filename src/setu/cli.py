@@ -120,8 +120,16 @@ def _cmd_check(args: argparse.Namespace) -> int:
               f"(skill {row['skill_vs_persistence']:+.3f})")
     print(f"response        {r['actions']} dispatches, {r['suppressed']} suppressed")
     print(f"drift           {result.drift['nodes_with_alarms']} nodes alarmed")
-    print("equal cost      " + ", ".join(
-        f"{k}: {v['gain']:+.2f}" for k, v in result.equal_cost.items()))
+    # equal_cost mixes per-lever rows with bookkeeping keys (breach_hours,
+    # coarse_action_ugm3, action_threshold_ugm3, note), so select the rows the
+    # same way report.py does instead of assuming every value is a lever.
+    gains = [f"{k}: {v['gain']:+.2f}"
+             for k, v in result.equal_cost.items()
+             if isinstance(v, dict) and "gain" in v]
+    if gains:
+        print("equal cost      " + ", ".join(gains))
+    else:
+        print(f"equal cost      {result.equal_cost.get('note', 'undefined in this window')}")
     failing = [row["source"] for row in result.shares if not row["within"]]
     if failing:
         print(f"share cross-check FAILS for {', '.join(failing)} - see "
