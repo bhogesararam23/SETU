@@ -9,6 +9,7 @@ more than a run that refused to start.
 from __future__ import annotations
 
 import dataclasses
+import math
 from typing import Mapping, Sequence
 
 import numpy as np
@@ -89,7 +90,7 @@ def calibrate_all(t: twin.DigitalTwin, nodes: Sequence[grid.Node],
                                       threshold=threshold, node=node.id).as_dict())
 
     transfer_diag: dict[str, object] = {"nodes": [], "r2": [], "mae_before": [],
-                                        "mae_after": []}
+                                        "mae_after": [], "distance_m": []}
     for node in nodes[len(donors):]:
         truth, raw = t.truth(node), t.raw(node)
         cut = _split(len(truth), train_frac)
@@ -111,6 +112,10 @@ def calibrate_all(t: twin.DigitalTwin, nodes: Sequence[grid.Node],
         transfer_diag["r2"].append(diag["r2"])
         transfer_diag["mae_before"].append(naive)
         transfer_diag["mae_after"].append(report.after.mae)
+        # Distance to the donor is the variable the scalability claim actually
+        # rests on: a transfer that only works next door is a co-location in
+        # disguise. Recorded per node so _summarise_transfer can band it.
+        transfer_diag["distance_m"].append(grid.haversine_m(donor_node, node))
         reports.append(report.as_dict())
 
         # Only post-fit residuals are fed to the monitor. Including the training
@@ -277,11 +282,10 @@ def run(site_name: str = "rajkot", past_days: int = 92,
     threshold = (float(site.naaqs["pm25_24h"]) if threshold is None
                  else float(threshold))
     if verbose:
-        print(f"[setu] action threshold {threshold:.1f} ug/m3, "
+        print(f"[setu] {len(hourly)} real background hours, {len(nodes)} nodes, "
+              f"action threshold {threshold:.1f} ug/m3, "
               f"background mean {hourly['pm25'].mean():.1f} "
               f"max {hourly['pm25'].max():.1f}")
-    if False:
-        print(f"[setu] {len(hourly)} real background hours, {len(nodes)} nodes")
 
     products, cal_reports, transfer = calibrate_all(t, nodes, threshold)
     if verbose:
@@ -353,7 +357,7 @@ def run(site_name: str = "rajkot", past_days: int = 92,
                                   if p.drift_alarms > 0),
         },
         calibration=cal_reports,
-        transfer=_summarise_transfer(transfer),
+        transfer=_summarise_transfer(transfer, site.spacing_m),
         attribution=attr_stats,
         forecast=forecast,
         response={**response, "sample_actions": sample_actions},
@@ -406,15 +410,63 @@ def _coarse_breach_hours(products: Mapping[str, NodeProduct],
     return sorted(hits)
 
 
-def _summarise_transfer(diag: dict) -> dict:
+def _distance_bands(diag: dict, spacing_m: float) -> tuple[list[dict], float | None]:
+    """Transfer skill banded by donor distance, plus the distance/MAE correlation.
+
+    The scalability claim is "a node never co-located still calibrates". The
+    falsifiable version of that is "and it still calibrates 1.5 km away", so the
+    distances are reported instead of averaged away. Bands are in lattice
+    pitches because the pitch is what the deployment actually spaces.
+    """
+    rows_in = list(zip(diag.get("distance_m", []), diag.get("mae_before", []),
+                       diag.get("mae_after", []), diag.get("r2", [])))
+    if not rows_in:
+        return [], None
+
+    edges = [(0.0, 1.5 * spacing_m, "within 1.5 pitches"),
+             (1.5 * spacing_m, 2.5 * spacing_m, "1.5-2.5 pitches"),
+             (2.5 * spacing_m, 3.5 * spacing_m, "2.5-3.5 pitches"),
+             (3.5 * spacing_m, math.inf, "over 3.5 pitches")]
+    out = []
+    for lo, hi, label in edges:
+        members = [r for r in rows_in if lo <= r[0] < hi]
+        if not members:
+            continue
+        out.append({
+            "band": label,
+            "nodes": len(members),
+            "mean_distance_m": round(float(np.mean([m[0] for m in members])), 1),
+            "mean_mae_before": round(float(np.mean([m[1] for m in members])), 4),
+            "mean_mae_after": round(float(np.mean([m[2] for m in members])), 4),
+            "mean_overlap_r2": round(float(np.mean([m[3] for m in members])), 4),
+        })
+
+    # Pearson r between donor distance and post-transfer MAE. Positive and large
+    # would mean the transfer is really a co-location effect. It is one number
+    # about the whole set, so it belongs on the summary rather than repeated
+    # inside every band.
+    dist = np.asarray([r[0] for r in rows_in], dtype=float)
+    after = np.asarray([r[2] for r in rows_in], dtype=float)
+    corr = (float(np.corrcoef(dist, after)[0, 1])
+            if len(rows_in) > 2 and dist.std() > 0 and after.std() > 0 else None)
+    return out, None if corr is None else round(corr, 3)
+
+
+def _summarise_transfer(diag: dict, spacing_m: float = 320.0) -> dict:
     def _mean(key):
         vals = [v for v in diag.get(key, []) if v is not None and np.isfinite(v)]
         return round(float(np.mean(vals)), 4) if vals else None
+
+    bands, corr = _distance_bands(diag, spacing_m)
 
     return {
         "nodes_transferred": len(diag.get("nodes", [])),
         "mean_overlap_r2": _mean("r2"),
         "mean_mae_before": _mean("mae_before"),
         "mean_mae_after": _mean("mae_after"),
+        "max_donor_distance_m": (round(float(max(diag["distance_m"])), 1)
+                                 if diag.get("distance_m") else None),
+        "by_distance_band": bands,
+        "distance_mae_correlation": corr,
         "failures": diag.get("failures", []),
     }
