@@ -94,7 +94,7 @@ it, the baseline it is scored against, and the pass rule agreed before running.
 | **Test** | Both arms get the same passes per day. Roster spaces them from a 05:00 shift start; trigger places them on hours the grid actually breaches. Coverage compared per lever using its measured half-life. |
 | **Baselines** | The roster, at equal cost. Scored on genuinely episodic breach hours (construction, open burning) **and** on the continuous road-dust case. |
 | **Pass rule** | Positive gain on short-lived levers, ~zero on a 20-hour suppressant. A positive gain on the suppressant would mean the comparison is rigged. |
-| **Result** | +0.12 and +0.18 on the 62-min and 150-min levers, **0.00** on the ~20 h suppressant, **+0.00** on chronic road dust. 739 dispatches, 3,299 suppressed, every suppression carrying one of five gate reasons. |
+| **Result** | +0.12 and +0.18 on the 62-min and 150-min levers, **0.00** on the ~20 h suppressant, **+0.00** on chronic road dust. Over the full grid: 14,224 dispatches and 56,656 suppressions, every suppression carrying one of six gate reasons. |
 | **Effect measurement** | `measure_effect` refuses to score an intervention without native-cadence data. Hourly input is unscorable and the test asserts that: an effect window shorter than the reporting cadence cannot be measured, and pretending otherwise is how half-lives get invented. |
 
 ### Drift
@@ -194,8 +194,11 @@ but it is not the configuration the headline numbers come from, so it is named.
 
 Verification performed on the committed output: re-running from the snapshot
 reproduced every number byte-identically — 1,772 hours, 40 nodes, MAE
-9.85 → 1.82, attribution 0.789, 739 dispatches, 3,299 suppressed. Only the two
-prose labels changed.
+9.85 → 1.82, attribution 0.789. The response counts did move, and correctly:
+a `len(rows) > 4000` guard meant to bound the displayed sample was sitting
+inside the engine loop, so the run had been scoring roughly three nodes and
+reporting them as forty. Processing every node-hour gives 14,224 dispatches
+and 56,656 suppressions. Nothing else in the report changed.
 
 ---
 
@@ -232,7 +235,8 @@ Reported because they are the part a reviewer trusts most.
    `readBme()` and `readWind()` are documented stubs; `client.setInsecure()` is
    an unresolved TODO.
 6. **Evaluated against our own generator** for attribution — see §2.
-7. **`instrumented_nodes: 40` is an engineering choice, not a permit.** A 320 m
+7. **The engine dispatches 4.8 times per zone per day.** 14,224 dispatches over 40 zones and 74 days. The dwell gate is the only thing limiting re-dosing, and a ward sanitation supervisor receiving five work orders a day for the same stretch of road is a plausible failure mode that this prototype cannot test without a real roster.
+8. **`instrumented_nodes: 40` is an engineering choice, not a permit.** A 320 m
    lattice over 4 km² is what the BOM and the deployment story support; no
    municipal permission has been sought.
 

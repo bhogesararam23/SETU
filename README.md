@@ -109,7 +109,7 @@ over 1,772 hours of real Rajkot background:
   0.820 above a 0.60 posterior, on 90.4% of hours. Coefficient signs match the
   published size signatures.
 - **Forecast** — 1 h RMSE 1.54 vs persistence 2.36 over 69,680 node-hours.
-- **Response** — 739 dispatches, 3,299 suppressed, each with a logged reason.
+- **Response** — over the full 40-node grid: 14,224 dispatches, 56,656 suppressed, every one carrying a logged gate reason. That is 4.8 dispatches per zone per day, which is a lot and is written up in `docs/LIMITATIONS.md` rather than smoothed over. The figure used to read 739/3,299, which was wrong: a display cap was silently stopping the engine after about three nodes.
 
 **Read [docs/LIMITATIONS.md](docs/LIMITATIONS.md) before quoting any of them.**
 In short: no hardware exists, so the sensors are a digital twin over real
