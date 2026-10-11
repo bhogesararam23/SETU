@@ -101,9 +101,10 @@ makes the committed `results/` reproducible offline:
 SETU_CACHE_DIR=data/fixtures/upstream SETU_OFFLINE=1 python -m setu run --threshold 15
 ```
 
-CI uses the same path, which is why the build needs no secrets and why a judge on
-a plane can run the whole thing. See `data/fixtures/upstream/README.md` for the
-fetch dates, row counts and licence attribution.
+The CI build is written to use the same path, which is why it needs no secrets —
+and why a judge on a plane can run the whole thing by hand. See
+`data/fixtures/upstream/README.md` for the fetch dates, row counts and licence
+attribution, and `docs/VALIDATION_PROTOCOL.md` §4 for what is currently running.
 
 The tests that need upstream-shaped data use stubs rather than the snapshot, so
 `pytest` passes with no network and no cache at all.

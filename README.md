@@ -195,9 +195,14 @@ tests/         209 tests, all offline - HTTP is faked, so CI needs no network
 docs/          architecture, data sources, validation protocol, limitations
 results/       generated output, committed so the repo is readable without running it
 data/fixtures/ committed snapshot of the real upstream responses (see its README)
-.github/       CI: pytest on 3.10/3.11/3.12 (Linux + Windows), offline end-to-end
-               run, and gates that assert the claims this README makes
 ```
+
+The CI definition — a pytest matrix on 3.10/3.11/3.12 across Linux and Windows,
+an offline end-to-end replay, and gates that assert the claims this README makes
+— is written but not yet on `main`: GitHub will not accept a `.github/workflows/`
+push from a credential without the `workflow` scope. It waits on the local branch
+`add-ci-workflow`, and `docs/VALIDATION_PROTOCOL.md` §4 records which of those
+checks were run by hand and passed in the meantime.
 
 ## Design decisions worth arguing about
 

@@ -8,8 +8,9 @@ SETU_CACHE_DIR=data/fixtures/upstream SETU_OFFLINE=1 python -m setu check
 ```
 
 `SETU_OFFLINE=1` makes the cache serve a copy past its TTL instead of refusing,
-which is what a snapshot needs. GitHub Actions does exactly this, for exactly
-this reason - see `.github/workflows/ci.yml`.
+which is what a snapshot needs. This is the path the CI build is written to use,
+for exactly this reason; see `docs/VALIDATION_PROTOCOL.md` §4 for which parts of
+that build are live and which are still waiting on a push permission.
 
 ## What these files are
 

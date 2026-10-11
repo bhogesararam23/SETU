@@ -145,10 +145,10 @@ guess.
 
 ---
 
-## 4. Gates CI enforces
+## 4. Gates the build enforces
 
-`.github/workflows/ci.yml` runs offline against `data/fixtures/upstream` — no
-keys, no accounts. `regression-gates` fails the build if:
+The build runs offline against `data/fixtures/upstream` — no keys, no accounts.
+`regression-gates` fails it if:
 
 1. calibrated MAE is not below raw MAE, or exceeds 5.0 µg/m³;
 2. attribution accuracy is not at least 0.2 above chance;
@@ -161,6 +161,16 @@ keys, no accounts. `regression-gates` fails the build if:
 The gates assert *relationships*, not exact numbers: BLAS and scikit-learn
 releases move the third decimal, and a build that fails on 1.82 → 1.83 teaches
 nobody anything.
+
+**Status of the workflow itself.** GitHub refuses to accept a push that adds
+`.github/workflows/` unless the push credential carries the `workflow` scope,
+and the credential used for this repository does not. So the three jobs above
+are written and held locally on the branch `add-ci-workflow`, not yet active on
+`main`. What has been verified is the substance: the gate script was executed by
+hand against the committed output and passes, and the offline end-to-end run was
+executed by hand from the committed snapshot. As soon as the scope is granted the
+workflow lands as a forward commit and the build starts running these same
+checks on every push.
 
 ---
 
