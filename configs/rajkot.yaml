@@ -22,8 +22,13 @@ pilot:
   extent_km: 2.0
   spacing_m: 320
   # spacing 320 m over 2000 m gives a 7x7 lattice = 49 candidate sites.
-  # 40 are instrumented; the remaining 9 are held out and never used to fit
-  # the calibration model, so calibration transfer can be scored honestly.
+  # 40 are instrumented and the other 9 are left uninstrumented, which is what
+  # a real first deployment looks like: poles get refused, trees get in the way,
+  # one ward simply says no. Note what this does and does not buy. The 9 sites
+  # generate no readings, so they are not a spatial hold-out in the statistical
+  # sense - they are the coverage gap. The honest scoring of calibration
+  # transfer comes from the 38 nodes that never touch a reference, reported
+  # banded by their distance to the donor that calibrated them.
   instrumented_nodes: 40
   holdout_pattern: every_5th
   # Bearing from north, used to orient the lattice so rows run with the
