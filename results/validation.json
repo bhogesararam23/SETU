@@ -57,14 +57,14 @@
         "url": "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=22.3039&longitude=70.7962&hourly=pm2_5,pm10,carbon_monoxide,nitrogen_dioxide,ozone,sulphur_dioxide,dust,aerosol_optical_depth&past_days=92&forecast_days=0&timezone=Asia/Kolkata&wind_speed_unit=ms",
         "fetched_at_iso": "2026-10-10T21:41:02Z",
         "from_cache": true,
-        "age_seconds": 6468.4
+        "age_seconds": 9233.0
       },
       {
         "label": "open-meteo-forecast",
         "url": "https://api.open-meteo.com/v1/forecast?latitude=22.3039&longitude=70.7962&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,surface_pressure,boundary_layer_height&past_days=92&forecast_days=0&timezone=Asia/Kolkata&wind_speed_unit=ms",
         "fetched_at_iso": "2026-10-10T21:41:04Z",
         "from_cache": true,
-        "age_seconds": 6467.2
+        "age_seconds": 9231.8
       }
     ],
     "hourly_rows": 1772,
@@ -2375,6 +2375,42 @@
     "mean_overlap_r2": 0.9706,
     "mean_mae_before": 9.8881,
     "mean_mae_after": 1.9014,
+    "max_donor_distance_m": 2499.3,
+    "by_distance_band": [
+      {
+        "band": "within 1.5 pitches",
+        "nodes": 2,
+        "mean_distance_m": 320.0,
+        "mean_mae_before": 5.8549,
+        "mean_mae_after": 1.1277,
+        "mean_overlap_r2": 0.9827
+      },
+      {
+        "band": "1.5-2.5 pitches",
+        "nodes": 4,
+        "mean_distance_m": 677.8,
+        "mean_mae_before": 7.3772,
+        "mean_mae_after": 1.0757,
+        "mean_overlap_r2": 0.9839
+      },
+      {
+        "band": "2.5-3.5 pitches",
+        "nodes": 5,
+        "mean_distance_m": 1011.9,
+        "mean_mae_before": 7.2349,
+        "mean_mae_after": 1.9928,
+        "mean_overlap_r2": 0.983
+      },
+      {
+        "band": "over 3.5 pitches",
+        "nodes": 27,
+        "mean_distance_m": 1787.0,
+        "mean_mae_before": 11.0501,
+        "mean_mae_after": 2.0641,
+        "mean_overlap_r2": 0.9654
+      }
+    ],
+    "distance_mae_correlation": 0.263,
     "failures": []
   },
   "attribution": {
