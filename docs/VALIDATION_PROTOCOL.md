@@ -28,7 +28,7 @@ what?" and the answer is in the report, not in a footnote.
 
 ## 2. The claim table
 
-Each row is a claim in the deck or README, the test that could have falsified
+Each row is a claim in the write-up or README, the test that could have falsified
 it, the baseline it is scored against, and the pass rule agreed before running.
 
 ### Calibration

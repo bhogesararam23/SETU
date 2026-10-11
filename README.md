@@ -7,9 +7,8 @@ A prototype decision layer for urban air quality: it takes a hyperlocal sensor
 grid, works out **which source** is causing a breach at **which street**, and
 doses the municipality's existing levers to the measured decay curve of each one.
 
-Built for **Techfest 2026-27 InnovateX (The Future Habitats Challenge), Theme 2 —
-Rising AQI Levels in Modern Urban Cities**, by **Team Renovator**, Team ID
-`TM-6CEAA83E01F`.
+An independent research prototype on **rising AQI in modern urban cities**,
+anchored on Rajkot, Gujarat. Built by **Team Renovator**.
 
 > India does not have an air-data problem. It has an air-decision problem.
 
@@ -227,7 +226,7 @@ Recorded with their reasoning in `docs/ARCHITECTURE.md`. The short version:
 | Ram Bhogesara | Team Leader | bhogesara.ram23@gmail.com |
 | Bhavik Pandit | | mrbhavikpandit@gmail.com |
 
-Team **Renovator** · Team ID `TM-6CEAA83E01F` · Theme 2 · 2 of 4 members.
+Team **Renovator** · Rajkot and Morbi, Gujarat.
 
 ## License
 

@@ -130,7 +130,7 @@ permissions are not.
 - The forecast is gradient-boosted trees, not the graph neural network the design
   argues for. At 40 nodes and 92 days (~58k node-hours) a GNN is the right
   architecture for the deployed system and the wrong one for this dataset; the
-  literature results quoted in the deck come from dense reference networks and
+  literature results quoted in the write-up come from dense reference networks and
   are not comparable to the skill figures here.
 - The `regional_background` and `mixed` labels the twin emits are deliberately
   excluded from classifier accuracy, since the model has no class for them. That
