@@ -238,7 +238,7 @@ class ResponseEngine:
                              f"{lever.key} dispatched {last}, dwell is "
                              f"{self.gates.min_dwell_minutes:.0f} min")
 
-        recheck = (obs.at + pd.Timedelta(minutes=lever.dose_interval_min())
+        recheck = ((obs.at + pd.Timedelta(lever.dose_interval_min(), unit="min"))
                    if lever.dose_interval_min() is not None else None)
         action = Action(
             id=f"A{next(_ACTION_IDS):05d}", node=obs.node, source=source,
@@ -287,7 +287,7 @@ class ResponseEngine:
         """
         lever = self.table.levers[action.lever]
         window_min = lever.half_life_min or 120.0
-        window = pd.Timedelta(minutes=window_min)
+        window = pd.Timedelta(window_min, unit="min")
 
         before = series[(series.index >= action.dispatched_at - 3 * window)
                         & (series.index < action.dispatched_at)].dropna()
@@ -349,8 +349,8 @@ def dose_schedule(lever: Lever, start: pd.Timestamp, hours: int = 24
     interval = lever.dose_interval_min()
     if interval is None:
         return [start]
-    step = pd.Timedelta(minutes=interval)
-    horizon = start + pd.Timedelta(hours=hours)
+    step = pd.Timedelta(interval, unit="min")
+    horizon = start + pd.Timedelta(hours, unit="h")
     out, t = [], start
     while t <= horizon and len(out) < 200:
         out.append(t)
@@ -372,7 +372,7 @@ def coverage_fraction(doses: Sequence[pd.Timestamp], window: tuple[pd.Timestamp,
     for d in doses:
         if d < lo or d >= hi:
             continue
-        end = min(d + pd.Timedelta(minutes=lever.half_life_min), hi)
+        end = min(d + pd.Timedelta(lever.half_life_min, unit="min"), hi)
         covered += max(0.0, (end - max(d, lo)).total_seconds())
     return min(1.0, covered / span)
 
