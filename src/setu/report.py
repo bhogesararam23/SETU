@@ -1,4 +1,4 @@
-"""Render a run as something a judge can read without running anything.
+"""Render a run as a human-readable validation report.
 
 Two outputs, deliberately: results/validation.json for machines and the
 dashboard, results/VALIDATION.md for people. The markdown is written to lead
@@ -275,7 +275,7 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
     if r["actions"] == 0:
         add("")
         add(f"This window produced no dispatches, and that is the correct "
-            f"answer rather than a broken demo: the background PM2.5 over "
+            f"answer for this validation window: background PM2.5 over "
             f"{s['hours']} hours averaged {s['background_mean_pm25']} ug/m3 and "
             f"peaked at {s['background_max_pm25']}, against an action level of "
             f"{s['threshold_ugm3']:.0f} ug/m3. Rajkot's monsoon and post-monsoon "

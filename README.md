@@ -7,8 +7,7 @@ A prototype decision layer for urban air quality: it takes a hyperlocal sensor
 grid, works out **which source** is causing a breach at **which street**, and
 doses the municipality's existing levers to the measured decay curve of each one.
 
-An independent research prototype on **rising AQI in modern urban cities**,
-anchored on Rajkot, Gujarat. Built by **Team Renovator**.
+An open-source research project on urban air quality, anchored on Rajkot, Gujarat. SETU explores how source attribution, uncertainty-aware calibration, and measured intervention effects can support more local air-quality decisions.
 
 > India does not have an air-data problem. It has an air-decision problem.
 
@@ -132,7 +131,7 @@ pytest                       # 209 tests, no network needed
 python -m setu check         # fast end-to-end run, headline numbers to stdout
 python -m setu run           # full run, writes results/VALIDATION.md + .json
 python -m setu serve         # operator console on http://127.0.0.1:8090
-python -m setu probe-upstream# which data sources are reachable from here
+python -m setu probe-upstream  # which data sources are reachable from here
 python -m setu bom           # lever table, gates, and the do-not-build list
 ```
 
@@ -148,14 +147,13 @@ SETU_CACHE_DIR=data/fixtures/upstream SETU_OFFLINE=1 \
 the headline dispatch counts were produced at. Left out, the run defaults to the
 Indian NAAQS 24-hour limit of 60 µg/m³ - which Rajkot's monsoon and post-monsoon
 window never reaches, so the response layer correctly does nothing at all. That
-is a real finding about a clean season, not a demo, and it is reported as one.
+is a real finding about a clean season, and it is reported as such.
 
 `data/fixtures/upstream/` is a committed snapshot of the real Open-Meteo
-responses the pilot used, which is why CI needs no credentials and why a judge on
-a plane can run the whole pipeline.
+responses used by the reproducible validation run. It allows the full pipeline
+to be re-run without credentials or network access.
 
-Port 8090 rather than 3000 because 3000 is taken by Grafana on the development
-machine.
+The local operator console runs at `http://127.0.0.1:8090` by default.
 
 ## What is real and what is not
 
@@ -197,12 +195,10 @@ results/       generated output, committed so the repo is readable without runni
 data/fixtures/ committed snapshot of the real upstream responses (see its README)
 ```
 
-The CI definition — a pytest matrix on 3.10/3.11/3.12 across Linux and Windows,
-an offline end-to-end replay, and gates that assert the claims this README makes
-— is written but not yet on `main`: GitHub will not accept a `.github/workflows/`
-push from a credential without the `workflow` scope. It waits on the local branch
-`add-ci-workflow`, and `docs/VALIDATION_PROTOCOL.md` §4 records which of those
-checks were run by hand and passed in the meantime.
+Automated GitHub Actions CI is not currently configured on `main`. Before
+relying on a code change, run the test suite and the offline end-to-end replay
+locally; `docs/VALIDATION_PROTOCOL.md` documents the validation protocol and
+its current evidence.
 
 ## Design decisions worth arguing about
 
@@ -224,14 +220,12 @@ Recorded with their reasoning in `docs/ARCHITECTURE.md`. The short version:
   model — because ~58k node-hours is the wrong dataset size for that
   architecture, and saying so beats quietly overfitting something impressive.
 
-## Team
+## Maintainers and contributors
 
-| | | |
-| --- | --- | --- |
-| Ram Bhogesara | Team Leader | bhogesara.ram23@gmail.com |
-| Bhavik Pandit | | mrbhavikpandit@gmail.com |
+- **Ram Bhogesara** — project maintainer
+- **Bhavik Pandit** — project contributor
 
-Team **Renovator** · Rajkot and Morbi, Gujarat.
+SETU is developed as an open-source research project based in Gujarat, India.
 
 ## License
 

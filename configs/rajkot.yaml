@@ -6,7 +6,6 @@
 site:
   id: rajkot
   label: Rajkot, Gujarat
-  team: Renovator
   theme: 2
   # Urban-agglomeration centroid. Rounded to 4 dp on purpose: the Open-Meteo
   # CAMS grid cell is ~0.1 deg, so sub-kilometre precision here would be

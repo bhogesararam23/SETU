@@ -1,4 +1,4 @@
-"""The report is the only artifact a judge reads without running the code.
+"""The report is the human-readable validation artifact for users who do not run the code.
 
 These tests exist because a generated report can state something factually
 wrong about its own run - the wrong command name, or the wrong statutory

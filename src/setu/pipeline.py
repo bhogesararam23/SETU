@@ -385,7 +385,6 @@ def run(site_name: str = "rajkot", past_days: int = 92,
         },
         summary={
             "site": site.label,
-            "team": "Renovator",
             "nodes": len(nodes),
             "hours": int(len(hourly)),
             "threshold_ugm3": threshold,

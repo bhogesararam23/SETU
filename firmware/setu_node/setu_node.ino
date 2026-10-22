@@ -2,7 +2,7 @@
  * SETU node firmware - ESP32-S3 + Sensirion SPS30 + Plantower PMS5003
  *                      + BME280 + RS485 ultrasonic anemometer
  *
- * Team Renovator - Rajkot, Gujarat.
+ * Open-source SETU research project.
  *
  * The one job this firmware has that a generic sensor sketch does not: it must
  * never present a reading it cannot defend. Every frame that leaves this device

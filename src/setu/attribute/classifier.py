@@ -135,7 +135,7 @@ class SourceClassifier:
         A short run over few nodes may never contain a rare source - a
         twelve-day construction campaign does not appear in a 45-day window at
         all if none of the sampled nodes sit near a site. Refusing to fit is
-        right for a validation run and wrong for a demo, so the caller can
+        right for a validation run but too restrictive for an exploratory run, so the caller can
         narrow the class set instead; the priors are renormalised over what
         remains and the exclusion is reported rather than hidden.
         """

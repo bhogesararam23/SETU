@@ -2,8 +2,8 @@
 
 Everything here is keyless. That is a design constraint, not an accident: a
 prototype that needs three registered API tokens is a prototype nobody can
-re-run, and a judge on a conference network should be able to reproduce the
-numbers.
+re-run, and contributors should be able to reproduce the numbers on a restricted
+network or in an offline environment.
 
 ## In use
 
@@ -88,7 +88,7 @@ instrument-compliance result. A 10 km model also cannot be the reference for a
 
 `src/setu/io/cache.py` writes every response to `data/cache/` with its URL and
 fetch time, and serves it for six hours. `SETU_OFFLINE=1` forbids all network
-egress, so the pipeline can be demonstrated on a machine with no connection
+egress, so the pipeline can be run on a machine without network access
 against whatever was cached last. `SETU_CACHE_DIR` points the cache somewhere
 else without a code change.
 
@@ -102,7 +102,7 @@ SETU_CACHE_DIR=data/fixtures/upstream SETU_OFFLINE=1 python -m setu run --thresh
 ```
 
 The CI build is written to use the same path, which is why it needs no secrets —
-and why a judge on a plane can run the whole thing by hand. See
+and why the end-to-end workflow can be reproduced offline. See
 `data/fixtures/upstream/README.md` for the fetch dates, row counts and licence
 attribution, and `docs/VALIDATION_PROTOCOL.md` §4 for what is currently running.
 

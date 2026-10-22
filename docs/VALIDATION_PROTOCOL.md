@@ -186,7 +186,7 @@ PYTHONPATH=src SETU_CACHE_DIR=data/fixtures/upstream SETU_OFFLINE=1 \
 `--threshold 15` is the WHO 2021 24-hour guideline. Without it the run defaults
 to the Indian NAAQS 24-hour limit of 60 µg/m³, which Rajkot's monsoon and
 post-monsoon window never reaches, and the response layer correctly produces
-zero dispatches. That is a real result about a clean season, not a broken demo —
+zero dispatches. That is a real result about a clean season, not an implementation failure —
 but it is not the configuration the headline numbers come from, so it is named.
 
 `setu check` (45 days × 8 nodes) runs in about 25 s from the snapshot; the full

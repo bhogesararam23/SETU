@@ -38,10 +38,10 @@ Coordinates are the Rajkot site centre from `configs/rajkot.yaml`.
   against a committed report and fail for reasons that have nothing to do with
   the code.
 - **Politeness.** The user-agent identifies this project; the etiquette note in
-  `docs/DATA_SOURCES.md` says fetch at demonstration rates, not CI rates. A
+  `docs/DATA_SOURCES.md` says fetch at reasonable rates during development; CI and tests should use fixtures. A
   cached fixture fetches zero times.
 - **Availability.** Open-Meteo is generous but it is not ours to depend on for a
-  judged build.
+  run that depends on a live network connection.
 
 ## What this does NOT make real
 

@@ -1,6 +1,6 @@
 # Runtime dependencies for the SETU prototype.
 #
-# Deliberately small: the prototype must run on a judge's laptop with no
+# Deliberately small: the project must run on a developer machine with no
 # service accounts and no API keys. Everything here is a public PyPI wheel.
 requests>=2.31,<3
 PyYAML>=6.0,<7

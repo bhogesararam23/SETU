@@ -1,4 +1,4 @@
-"""The cache is what makes a demo reproducible; it has to be tested properly."""
+"""The cache is what makes offline runs reproducible; it has to be tested properly."""
 
 import json
 import shutil
@@ -179,7 +179,7 @@ def test_the_committed_snapshot_replays_offline(tmp_path, monkeypatch):
     """CI and the README's reproduction command both read
     data/fixtures/upstream with SETU_OFFLINE=1. This replays a real request
     through that path, so if the snapshot stops resolving, the test fails here
-    instead of in front of a judge.
+    instead of failing during CI or local development.
 
     The point is not that a file exists - it is that an *expired* entry is still
     served when egress is forbidden, which is the only reason a checked-in

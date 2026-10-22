@@ -51,7 +51,7 @@ def build_app(site_name: str = "rajkot") -> FastAPI:
         title="SETU operator console",
         version="0.1.0",
         description="Source-attributed, evidence-graded trigger for urban air "
-                    "quality. Team Renovator, Rajkot, Gujarat.",
+                    "quality research and decision-support system. Rajkot, Gujarat.",
     )
     site = load_site(site_name)
     table = load_action_table()
@@ -174,11 +174,11 @@ def build_app(site_name: str = "rajkot") -> FastAPI:
                 (RESULTS_DIR / "validation.json").exists()}
 
     if DASHBOARD_DIR.exists():
-        # no-store, deliberately. The console is edited between demo runs, and a
+        # no-store, deliberately. The console is edited between local development iterations, and a
         # browser holding an old app.js against a changed API shape renders
         # "n/a" under correct-looking headings - which reads as a broken pipeline
         # rather than a stale cache. Nothing here is large enough to merit
-        # caching on a localhost demo.
+        # caching on a localhost operator console.
         app.mount("/static",
                   NoStoreStaticFiles(directory=str(DASHBOARD_DIR)),
                   name="static")

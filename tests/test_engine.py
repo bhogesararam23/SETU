@@ -4,7 +4,7 @@ Two of these tests assert that SETU's central mechanism is worthless under
 particular conditions. That is deliberate. The value of triggering is
 conditional on a short-lived lever acting on an episodic source, and a repo
 that only ever shows the favourable case will not survive a question from a
-judge who has read the road-dust literature.
+reader who has examined the road-dust literature.
 """
 
 import numpy as np

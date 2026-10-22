@@ -2,9 +2,9 @@
 
 Three properties matter more than speed here:
 
-1. Re-running the pipeline must not re-hit upstream. A judge who runs
-   `python -m setu validate` twice should get identical numbers, and a demo on
-   a conference wifi connection should not fail because the API rate-limited.
+1. Re-running the pipeline must not re-hit upstream. A researcher or
+   contributor who runs `python -m setu validate` twice should get identical
+   numbers, and a network-restricted run should not fail because of rate limits.
 2. Every response carries provenance - URL, fetch time, status - because the
    evidence pack has to be able to say where a number came from.
 3. It must degrade honestly. Offline means "serve the cache or raise", never
@@ -33,7 +33,7 @@ DEFAULT_CACHE_DIR = Path(__file__).resolve().parents[3] / "data" / "cache"
 # User-Agent says who to email and the contact is in the README.
 USER_AGENT = "SETU-air-prototype/0.1 (independent research prototype; +https://github.com/bhogesararam23/SETU)"
 
-#: Set SETU_OFFLINE=1 to forbid all network access, e.g. on a demo machine.
+#: Set SETU_OFFLINE=1 to forbid all network access, e.g. in an offline environment.
 OFFLINE_ENV = "SETU_OFFLINE"
 
 #: Point the cache somewhere else without touching code. CI uses this to read

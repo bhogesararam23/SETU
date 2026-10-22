@@ -1,8 +1,7 @@
 /* SETU operator console.
  *
- * Plain script, no build step: the whole point of the prototype is that a judge
- * can run it on a laptop, and a bundler would make that harder to explain than
- * the system itself.
+ * Plain JavaScript and no build step keep local setup simple and make the
+ * interface easy to inspect alongside the API and validation outputs.
  */
 
 const GATE_WHY = {

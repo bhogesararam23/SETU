@@ -2,7 +2,7 @@
 
 Why this source carries the prototype:
 
-  * No API key, no account, no quota to explain to a judge.
+  * No API key or account is required, avoiding a dependency on private service credentials.
   * Hourly, multi-species (PM2.5, PM10, CO, NO2, O3, SO2, mineral dust, AOD),
     which is enough to form a coarse/fine split and a combustion tracer.
   * It reaches 92 days back, which is long enough for a real hold-out

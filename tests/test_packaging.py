@@ -1,6 +1,6 @@
-"""Guard the install path a judge actually follows.
+"""Guard the install path a developer or contributor actually follows.
 
-`pip install -r requirements.txt` then `python -m setu run` is the whole pitch of
+`pip install -r requirements.txt` then `python -m setu run` is the basic installation contract of
 this repository: no API keys, no service accounts, one command. It only works if
 every module the code imports is declared. That was broken once - pandas was used
 throughout and listed nowhere - so it is now checked rather than trusted.
@@ -74,7 +74,7 @@ def test_requirements_and_pyproject_declare_the_same_core():
                     reason="tomllib arrived in 3.11; requires-python allows 3.10")
 def test_the_api_stays_an_optional_extra():
     """`setu serve` needs fastapi; the pipeline must not, so that a plain
-    `pip install -r requirements.txt` on a judge's laptop is a small install."""
+    `pip install -r requirements.txt` on a developer machine is a small install."""
     core, extras = pyproject_dependencies()
     assert not core & {"fastapi", "uvicorn"}
     assert {"fastapi", "uvicorn"} <= extras
