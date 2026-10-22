@@ -1,4 +1,4 @@
-"""Typed-ish access to the YAML files under configs/.
+"""Typed access to the YAML files under configs/.
 
 The loader validates the handful of invariants the rest of the code relies on
 and refuses to start otherwise. Silently defaulting a missing threshold is how
@@ -9,11 +9,15 @@ from __future__ import annotations
 
 import dataclasses
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Literal, Mapping
 
 import yaml
 
 from .errors import ConfigError
+
+# Type aliases for configuration values
+HoldoutPattern = Literal["every_5th", "none"]
+TimezoneStr = str
 
 CONFIG_DIR = Path(__file__).resolve().parents[2] / "configs"
 
@@ -49,11 +53,11 @@ class Site:
     label: str
     latitude: float
     longitude: float
-    timezone: str
+    timezone: TimezoneStr
     extent_km: float
     spacing_m: float
     instrumented_nodes: int
-    holdout_pattern: str
+    holdout_pattern: HoldoutPattern
     rotation_deg: float
     naaqs: Mapping[str, float]
     who_2021: Mapping[str, float]
@@ -63,6 +67,21 @@ class Site:
     cpcb_state: str
     node_report_seconds: int
     forecast_hours: tuple[int, ...]
+
+    def __post_init__(self) -> None:
+        """Validate site configuration on construction."""
+        if not (-90 <= self.latitude <= 90):
+            raise ConfigError(f"latitude {self.latitude} out of range [-90, 90]")
+        if not (-180 <= self.longitude <= 180):
+            raise ConfigError(f"longitude {self.longitude} out of range [-180, 180]")
+        if self.extent_km <= 0:
+            raise ConfigError(f"extent_km must be positive, got {self.extent_km}")
+        if self.spacing_m <= 0:
+            raise ConfigError(f"spacing_m must be positive, got {self.spacing_m}")
+        if self.instrumented_nodes <= 0:
+            raise ConfigError(f"instrumented_nodes must be positive, got {self.instrumented_nodes}")
+        if self.node_report_seconds < 60:
+            raise ConfigError(f"node_report_seconds must be >= 60, got {self.node_report_seconds}")
 
     @property
     def cell_count_per_side(self) -> int:
