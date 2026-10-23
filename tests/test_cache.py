@@ -40,7 +40,11 @@ class FakeResponse:
 
 
 @pytest.fixture
-def cache(tmp_path):
+def cache(tmp_path, monkeypatch):
+    """Fetch-path tests drive a fake session, so they must not be pinned
+    offline even when the run points SETU_CACHE_DIR at the committed
+    snapshot (which conftest pins to SETU_OFFLINE=1 so nothing rewrites it)."""
+    monkeypatch.delenv(cache_mod.OFFLINE_ENV, raising=False)
     c = HttpCache(directory=tmp_path / "cache")
     c._session = FakeSession([])
     return c
