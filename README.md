@@ -89,31 +89,37 @@ know which street, which source, and when.
 ## Validation
 
 `python -m setu run` produces `results/VALIDATION.md`. Current headline, 40 nodes
-over 1,772 hours of real Rajkot background:
-
-| | Raw sensor | Calibrated |
+over 1,772 hours of real Rajkot background:| | Raw sensor | Calibrated |
 | --- | --- | --- |
-| PM2.5 MAE | 9.85 µg/m³ | **1.82 µg/m³** (−81.5%) |
-| PM2.5 R² | −1.56 | **0.76** |
-| Bias | +7.65 | **−0.55** |
-| Threshold accuracy @ 15 µg/m³ | 0.74 | **0.93** |
+| PM2.5 MAE | 10.41 µg/m³ | **3.21 µg/m³** (−69.1%) |
+| PM2.5 R² | −1.06 | **0.59** |
+| Bias | +8.13 | **−2.02** |
+| Threshold accuracy @ 15 µg/m³ | 0.75 | **0.92** |
 
 - **Transfer** — 38 nodes calibrated by pair-based transfer without ever seeing a
-  reference: MAE 9.89 → 1.90 µg/m³, overlap R² 0.971. Scored by donor distance
-  rather than averaged over it: MAE 1.13 within one lattice pitch, 2.06 beyond
+  reference: MAE 10.46 → 3.36 µg/m³, overlap R² 0.971. Scored by donor distance
+  rather than averaged over it: MAE 1.41 within one lattice pitch, 3.48 beyond
   3.5 pitches (mean 1.8 km, out to 2.5 km), Pearson r between distance and error
-  **+0.263**. Transfer is not co-location in disguise, and that is the number
+  **+0.248**. Transfer is not co-location in disguise, and that is the number
   which would have shown it if it were.
-- **Attribution** — 0.789 accuracy on 22,720 node-hours against 0.200 chance;
-  0.820 above a 0.60 posterior, on 90.4% of hours. Coefficient signs match the
-  published size signatures.
-- **Forecast** — 1 h RMSE 1.54 vs persistence 2.36 over 69,680 node-hours.
-- **Response** — over the full 40-node grid: 14,224 dispatches, 56,656 suppressed, every one carrying a logged gate reason. That is 4.8 dispatches per zone per day, which is a lot and is written up in `docs/LIMITATIONS.md` rather than smoothed over. The figure used to read 739/3,299, which was wrong: a display cap was silently stopping the engine after about three nodes.
+- **Attribution** — 0.600 accuracy on 15,451 node-hours against 0.200 chance;
+  0.838 above a 0.60 posterior, on 66.8% of hours. The model declines to name a
+  source on 53.4% of hours rather than guessing, and 84.3% of the hours the twin
+  labelled background or mixed stay unnamed — the reject class is what keeps the
+  other numbers from being confabulation. Coefficient signs are scored against
+  every published direction the grid can test, and 15 of 25 agree; the 10 that
+  do not are in the report rather than tuned away.
+- **Forecast** — 1 h RMSE 1.44 vs persistence 2.15 over 69,680 node-hours.
+- **Response** — over the full 40-node grid: 8,047 dispatches, 62,833 suppressed,
+  every one carrying a logged gate reason. That is 2.7 dispatches per zone per
+  day, and the suppression ledger's gate-by-gate costs are in the report rather
+  than smoothed over. The figure used to read 739/3,299, which was wrong: a
+  display cap was silently stopping the engine after about three nodes.
 
 **Read [docs/LIMITATIONS.md](docs/LIMITATIONS.md) before quoting any of them.**
 In short: no hardware exists, so the sensors are a digital twin over real
 background; CPCB was unreachable, so the reference is CAMS at ~10 km rather than
-a β-gauge; the source-share cross-check fails for two sources for a stated
+a β-gauge; the source-share cross-check fails for one source for a stated
 reason; and triggering earns **nothing** on a long-lived lever or a chronic
 source, which is reported in the same table as the case where it does.
 

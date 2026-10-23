@@ -1,23 +1,25 @@
 {
-  "id": "A01598",
+  "id": "A00745",
   "node": "rajkot-08",
   "source": "road_dust",
   "lever": "vacuum_sweeping",
   "owner": "ward_sanitation_supervisor",
   "dispatched_at": "2026-07-29 11:00:00",
   "recheck_at": "2026-07-29 12:52:30",
-  "trigger_value": 20.536209383819614,
+  "trigger_value": 20.80766882383885,
   "trigger_sigma": 0.5,
   "threshold": 15.0,
   "evidence": {
     "posterior": {
-      "construction": 0.0001,
+      "construction": 0.0,
       "open_burning": 0.0,
-      "road_dust": 0.999,
-      "secondary": 0.0009,
-      "traffic_combustion": 0.0
+      "road_dust": 0.8575,
+      "secondary": 0.0,
+      "traffic_combustion": 0.0,
+      "mixed": 0.0,
+      "regional_background": 0.1425
     },
-    "coarse_ratio": 0.618,
+    "coarse_ratio": 0.608,
     "wind_from_deg": 258.0,
     "lever_effect_pct": 24.0,
     "lever_half_life_min": 150.0,
