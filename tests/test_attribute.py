@@ -240,6 +240,63 @@ def test_reliability_table_accounts_for_every_scored_hour(fitted):
     assert expected_calibration_error(table) >= 0.0
 
 
+def test_every_declared_direction_is_scored_or_explicitly_not_judged(fitted):
+    """The check generalises or it is decoration: a table that silently omits
+    the channels it lost on would read as agreement."""
+    model, _, _ = fitted
+    sigs, _ = load_signatures()
+    table = model.signature_agreement(sigs)
+    declared = sum(len(s.features) for s in sigs.values())
+    assert len(table) == declared
+    # The CAMS mineral-dust column is the one channel the node does not
+    # measure; it is named as such rather than dropped.
+    unmeasured = table[table["note"] == "channel not measured by the node"]
+    assert set(unmeasured["signature_feature"]) == {"dust"}
+    assert unmeasured["coefficient"].isna().all()
+    # "flat" declares no sign, so it is reported with its coefficient but is
+    # never marked as agreeing or disagreeing.
+    flat = table[table["direction"] == "flat"]
+    assert len(flat) > 0
+    assert flat["agrees"].isna().all()
+    assert flat["coefficient"].notna().all()
+
+
+def test_the_load_bearing_published_signs_hold(fitted):
+    """The physics the novelty claim rests on, judged one row at a time."""
+    model, _, _ = fitted
+    sigs, _ = load_signatures()
+    table = model.signature_agreement(sigs).set_index(
+        ["source", "signature_feature"])
+    for key in [("road_dust", "coarse_ratio"), ("construction", "coarse_ratio"),
+                ("open_burning", "coarse_ratio"), ("secondary", "rh")]:
+        assert bool(table.loc[key, "agrees"]) is True, f"{key} contradicts the literature"
+    judged = table[table["agrees"].notna()]
+    agree = sum(1 for v in judged["agrees"] if bool(v))
+    # The rest is where the twin shows through - gas channels especially - so
+    # the bar is a clear majority with every failure reported, not perfection.
+    assert agree / len(judged) >= 0.55, f"only {agree}/{len(judged)} agree"
+
+
+def test_fine_ratio_is_judged_as_the_complement_it_is(fitted):
+    """signatures.yaml speaks in fine share; the model has the coarse channel.
+    Judged without the flip, every fine-ratio direction would come out wrong
+    whichever way the model leaned."""
+    model, _, _ = fitted
+    sigs, _ = load_signatures()
+    table = model.signature_agreement(sigs)
+    fine = table[table["signature_feature"] == "fine_ratio"]
+    assert set(fine["feature"]) == {"coarse_ratio"}
+    assert len(fine) == sum(1 for s in sigs.values()
+                            if "fine_ratio" in s.features)
+
+
+def test_signature_agreement_before_fit_is_an_error(corpus):
+    sigs, _ = load_signatures()
+    _, _, feats, _, _, _ = corpus
+    with pytest.raises(ConfigError, match="fit"):
+        SourceClassifier(sigs).signature_agreement(sigs)
+
+
 def test_ece_is_zero_only_for_a_perfectly_calibrated_table():
     """The metric, tested on tables whose answers are known by construction.
 

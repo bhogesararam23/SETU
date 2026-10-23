@@ -233,6 +233,34 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
         f"{sc['rh_on_secondary']:+.3f} |")
     add("")
 
+    agreement = att.get("signature_agreement") or {}
+    pairs = agreement.get("pairs") or []
+    if pairs:
+        add(f"Scored systematically rather than three at a time: of "
+            f"{agreement.get('checked', 0)} declared directions the node can "
+            f"actually test, **{agreement.get('agreed', 0)} agree** "
+            f"({_fmt(agreement.get('rate'), 2)}). The disagreements are all "
+            "reported below rather than tuned away, because a coefficient "
+            "that contradicts the published signature is a finding about the "
+            "model or the twin, and which one it is has to be argued, not "
+            "hidden.")
+        add("")
+        add("| Source | Declared channel | Expected | Learned | Strength | Note |")
+        add("| --- | --- | --- | --- | --- | --- |")
+        for p in pairs:
+            if p["agrees"] is None:
+                learned = ("-" if p["coefficient"] is None
+                           else f"{p['coefficient']:+.3f}")
+                add(f"| {p['source']} | {p['signature_feature']} | "
+                    f"{p['direction']} | {learned} | {p['strength']:.2f} | "
+                    f"{p['note'] or 'not judged'} |")
+        for p in pairs:
+            if p["agrees"] is False:
+                add(f"| {p['source']} | {p['signature_feature']} | "
+                    f"{p['direction']} | {p['coefficient']:+.3f} | "
+                    f"{p['strength']:.2f} | **disagrees** |")
+        add("")
+
     importance = att.get("feature_importance") or []
     if importance:
         add("### What the answer rests on")

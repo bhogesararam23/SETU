@@ -222,6 +222,20 @@ def attribute_all(products: Mapping[str, NodeProduct],
         "ece": round(expected_calibration_error(reliability), 4),
         "bins": reliability.to_dict(orient="records"),
     }
+    # Every direction signatures.yaml declares, scored against the learned
+    # coefficient. Three hand-picked signs were the minimum that could be
+    # quoted; this is the maximum that can be checked, and the disagreements
+    # it surfaces are findings about the twin and the model, not test
+    # failures to be tuned away.
+    agreement = clf.signature_agreement(sigs)
+    judged = agreement[agreement["agrees"].notna()]
+    agreed = sum(1 for v in judged["agrees"] if bool(v))
+    stats["signature_agreement"] = {
+        "checked": int(len(judged)),
+        "agreed": int(agreed),
+        "rate": round(agreed / len(judged), 4) if len(judged) else None,
+        "pairs": agreement.to_dict(orient="records"),
+    }
     return stats, compare_to_receptor(shares, published)
 
 

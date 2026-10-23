@@ -56,6 +56,26 @@ ATTR_FEATURES: tuple[str, ...] = (
 #: gate returns when no class clears it.
 ABSTAIN = "ambiguous"
 
+#: How a published signature's channel maps onto a model feature, and which way
+#: it maps. A multiplier of -1 means the signature speaks about the complement
+#: (fine share rises as coarse share falls), so the sign has to be flipped
+#: before the coefficient means what the literature says it means. A mapped
+#: feature of None means the channel is not in the design matrix at all - CAMS
+#: mineral dust is a column quantity the node does not measure - and the pair
+#: is reported as untestable rather than quietly dropped.
+SIGNATURE_FEATURE_MAP: dict[str, tuple[str | None, float]] = {
+    "coarse_ratio": ("coarse_ratio", 1.0),
+    "fine_ratio": ("coarse_ratio", -1.0),
+    "wind_speed": ("wind_speed_ms", 1.0),
+    "no2_excess": ("no2_excess", 1.0),
+    "co_excess": ("co_excess", 1.0),
+    "rh": ("rh_frac", 1.0),
+    "so2_excess": ("so2_excess", 1.0),
+    "o3_excess": ("o3_excess", 1.0),
+    "upwind_excess": ("upwind_coarse_ratio", 1.0),
+    "dust": (None, 1.0),
+}
+
 #: How strongly the published prior is allowed to pull. 0 = ignore it.
 PRIOR_BLEND = 0.5
 
@@ -279,6 +299,57 @@ class SourceClassifier:
             "importance_std": result.importances_std,
         }).set_index("feature")
         return out.sort_values("importance_mean", ascending=False)
+
+    def signature_agreement(self, signatures: Mapping[str, Signature]
+                            ) -> pd.DataFrame:
+        """Every published direction, scored against the learned coefficient.
+
+        The sign check this replaces read three hand-picked coefficients, which
+        is the minimum that can be quoted and not the maximum that can be
+        checked: signatures.yaml declares a dozen and a half directions across
+        the five sources, and a classifier that contradicts any load-bearing one
+        has found a spurious correlation however good its accuracy looks.
+
+        "flat" directions carry no sign requirement, so they are reported with
+        their coefficient but never marked as a disagreement - judging a weak
+        prior on its sign would be testing the paper, not the model. Channels
+        the node does not measure come back with feature=None so a reader can
+        see what was not checked rather than inferring it from a short table.
+        """
+        if self._model is None:
+            raise ConfigError("call fit() first")
+        coefs = self.coefficients()
+        rows: list[dict[str, object]] = []
+        for source in self.classes:
+            spec = signatures.get(source)
+            if spec is None:
+                continue
+            for name, (direction, strength) in spec.features.items():
+                mapped, polarity = SIGNATURE_FEATURE_MAP.get(name, (None, 1.0))
+                if mapped is None:
+                    rows.append({
+                        "source": source, "signature_feature": name,
+                        "feature": None, "direction": direction,
+                        "strength": round(float(strength), 3),
+                        "coefficient": None, "agrees": None,
+                        "note": "channel not measured by the node",
+                    })
+                    continue
+                coef = float(coefs.loc[source, mapped]) * polarity
+                agrees: bool | None
+                if direction == "flat":
+                    agrees = None
+                else:
+                    agrees = bool(coef > 0.0) == (direction == "up")
+                rows.append({
+                    "source": source, "signature_feature": name,
+                    "feature": mapped, "direction": direction,
+                    "strength": round(float(strength), 3),
+                    "coefficient": round(coef, 4), "agrees": agrees,
+                    "note": ("sign not required" if direction == "flat"
+                             else ""),
+                })
+        return pd.DataFrame(rows)
 
     def coefficients(self) -> pd.DataFrame:
         """Per-class standardised coefficients, so the model is inspectable.
