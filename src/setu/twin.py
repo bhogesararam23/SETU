@@ -72,6 +72,29 @@ class TwinConfig:
     construction_weekday_hours: tuple[int, int] = (9, 17)
     burning_hours: tuple[int, int] = (20, 3)
     burning_night_probability: float = 0.18
+    #: How often a seeded node sits within 200 m of a construction site, or has
+    #: an upwind burning ground. Kept as named fields rather than literals in
+    #: _make_node_profiles because these rates ARE the twin's apportionment:
+    #: they decide how many hours each source wins, and the share cross-check
+    #: against receptor studies is a statement about them before it is a
+    #: statement about any classifier.
+    construction_node_fraction: float = 0.25
+    burning_node_fraction: float = 0.20
+    #: Road proximity multiplier is uniform on [low, low + spread]; anything
+    #: above 1.0 re-suspends coarse mass at that node every hour.
+    road_factor_low: float = 0.85
+    road_factor_spread: float = 0.75
+    #: Traffic exhaust adds this fraction of the fine background at peak NO2,
+    #: decaying with the NO2 excess above the site median.
+    traffic_fine_fraction: float = 0.10
+    #: Secondary aerosol adds this many ug/m3 per % RH above 70, on every node
+    #: at once - the regional simultaneity the classifier must refuse to act on.
+    secondary_rh_slope: float = 0.12
+    #: Construction and burning increments, ug/m3 at the reference conditions.
+    construction_add_base: float = 18.0
+    construction_add_per_ms: float = 10.0
+    burning_add_base: float = 22.0
+    burning_add_spread: float = 18.0
 
 
 def growth_factor(rh_percent: pd.Series | float, b: float) -> pd.Series | float:
@@ -138,9 +161,10 @@ class DigitalTwin:
     def _make_node_profiles(self) -> pd.DataFrame:
         ids = [n.id for n in self.nodes]
         k = len(ids)
-        road = 0.85 + 0.75 * self.rng.random(k)          # proximity to carriageway
-        construction = self.rng.random(k) < 0.25         # site within 200 m
-        burning = self.rng.random(k) < 0.20              # upwind burning ground
+        road = (self.cfg.road_factor_low
+                + self.cfg.road_factor_spread * self.rng.random(k))  # proximity
+        construction = self.rng.random(k) < self.cfg.construction_node_fraction
+        burning = self.rng.random(k) < self.cfg.burning_node_fraction
         gain = 1.0 + self.cfg.gain_spread * self.rng.standard_normal(k)
         offset = np.abs(self.cfg.offset_spread * self.rng.standard_normal(k))
 
@@ -222,27 +246,30 @@ class DigitalTwin:
         # A traffic component rides on the fine mode where NO2 is elevated.
         no2 = h["no2"].to_numpy(dtype=float)
         no2_excess = np.clip(no2 - np.nanmedian(no2), 0.0, None)
-        traffic_add = fine_bg * 0.10 * no2_excess / max(float(no2_excess.max()), 1e-6)
+        traffic_add = fine_bg * self.cfg.traffic_fine_fraction * no2_excess / max(float(no2_excess.max()), 1e-6)
         fine_bg = fine_bg + traffic_add
 
         ws = h["wind_speed_ms"].to_numpy(dtype=float)
         constr_add = np.zeros(n)
         if prof.has_construction:
             dust = self._events["dust_event"].to_numpy(dtype=float)
-            constr_add = dust * (18.0 + 10.0 * np.clip(ws - 2.0, 0.0, None))
+            constr_add = dust * (self.cfg.construction_add_base
+                                 + self.cfg.construction_add_per_ms
+                                 * np.clip(ws - 2.0, 0.0, None))
 
         burn_add = np.zeros(n)
         co_add = np.zeros(n)
         if prof.burning_prone:
             burn = self._events["burning_event"].to_numpy(dtype=float)
-            burn_add = burn * (22.0 + 18.0 * self.rng.random(n))
+            burn_add = burn * (self.cfg.burning_add_base
+                               + self.cfg.burning_add_spread * self.rng.random(n))
             co_add = burn * (900.0 + 500.0 * self.rng.random(n))
 
         # Secondary aerosol is humidity-driven and regional, so it lands on
         # every node together. That simultaneity is the signature the
         # classifier must use to refuse a local intervention.
         rh = h["rh"].to_numpy(dtype=float)
-        sec_add = 0.12 * np.clip(rh - 70.0, 0.0, None)
+        sec_add = self.cfg.secondary_rh_slope * np.clip(rh - 70.0, 0.0, None)
 
         fine = fine_bg + burn_add + sec_add
         coarse = coarse_bg + constr_add + road_add * 0.0

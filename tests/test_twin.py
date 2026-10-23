@@ -186,6 +186,35 @@ def test_every_frame_is_marked_as_simulated(twins):
     assert t.raw(nodes[0]).attrs["provenance"] == "digital-twin"
 
 
+def test_injection_rates_are_configurable_not_lurking_in_the_body(background):
+    """The rates that decide how many hours each source wins are fields.
+
+    They used to be literals inside truth(), which made the twin's
+    apportionment untestable and untunable - the share cross-check against
+    receptor studies is a statement about these rates before it is a statement
+    about any classifier.
+    """
+    site, df = background
+    nodes = grid.instrumented(grid.build_lattice(site))[:6]
+    quiet = twin.DigitalTwin(df, nodes, site,
+                             twin.TwinConfig(traffic_fine_fraction=0.0,
+                                             secondary_rh_slope=0.0))
+    loud = twin.DigitalTwin(df, nodes, site,
+                            twin.TwinConfig(traffic_fine_fraction=0.40,
+                                            secondary_rh_slope=0.30))
+    quiet_labels = set().union(
+        *(set(quiet.truth(n)["dominant_source"]) for n in nodes))
+    loud_labels = set().union(
+        *(set(loud.truth(n)["dominant_source"]) for n in nodes))
+    # With the traffic knob at zero the source can never win an hour, whatever
+    # the NO2 channel does.
+    assert "traffic_combustion" not in quiet_labels
+    assert "traffic_combustion" in loud_labels
+    assert "secondary" in loud_labels
+    mean = lambda t, n: float(t.truth(n)["pm25"].mean())
+    assert mean(loud, nodes[0]) > mean(quiet, nodes[0])
+
+
 def test_injected_summary_reports_the_background_it_used(twins):
     site, df, nodes, t = twins
     s = t.injected_summary()
