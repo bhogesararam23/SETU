@@ -178,16 +178,29 @@ def _decline_stats(gated: Sequence, held_labels: pd.Series,
 
 
 def attribute_all(products: Mapping[str, NodeProduct],
-                  nodes: Sequence[grid.Node], min_posterior: float
-                  ) -> tuple[dict, pd.DataFrame]:
+                  nodes: Sequence[grid.Node], min_posterior: float,
+                  train_frac: float = 0.6) -> tuple[dict, pd.DataFrame]:
     sigs, _ = load_signatures()
     feats = pd.concat({nid: build_features(p.raw) for nid, p in products.items()})
     feats.index.names = ["node", "time"]
     labels = pd.concat({nid: p.truth["dominant_source"] for nid, p in products.items()})
     labels.index.names = ["node", "time"]
 
-    cut = _split(len(feats))
-    train_labels = labels.iloc[:cut]
+    # Chronological across every node, not by row position. The stacked frame
+    # is node-major, so a row cut puts whole nodes on one side of the split -
+    # and which nodes landed where was an accident of the order calibrate_all
+    # inserted them (transfers first, donors last). On the same data that
+    # accident moved the reported accuracy by twenty points and halved the
+    # road-dust share. Splitting on the timestamp puts the same hours in
+    # training for every node, which is what "fit on the first two-thirds
+    # chronologically" was always supposed to mean.
+    times = feats.index.get_level_values("time")
+    stamps = pd.DatetimeIndex(times.unique()).sort_values()
+    cutoff = stamps[min(int(len(stamps) * train_frac), len(stamps) - 1)]
+    train = np.asarray(times < cutoff, dtype=bool)
+    test = ~train
+
+    train_labels = labels[train]
     label_set = set(str(v) for v in train_labels.unique())
     present = sorted(label_set & set(sigs))
     excluded = sorted(set(sigs) - set(present))
@@ -197,7 +210,7 @@ def attribute_all(products: Mapping[str, NodeProduct],
     # reject classes; the classifier never emits them as an answer.
     reject = sorted(label_set - set(sigs))
     clf = SourceClassifier(sigs, classes=present,
-                           reject_labels=reject).fit(feats.iloc[:cut], train_labels)
+                           reject_labels=reject).fit(feats[train], train_labels)
 
     share_rows = []
     for nid, p in products.items():
@@ -211,14 +224,14 @@ def attribute_all(products: Mapping[str, NodeProduct],
     # citation, so the cross-check and the literature cannot drift apart -
     # they used to be a literal dict here that only this function knew about.
     published = {key: sig.published_share for key, sig in sigs.items()}
-    scorable = labels.iloc[cut:]
-    post = clf.posterior(feats.iloc[cut:])
+    scorable = labels[test]
+    post = clf.posterior(feats[test])
     ok = scorable.isin(list(clf.classes))
     conf = post[list(clf.classes)].max(axis=1)[ok.values]
     correct = (post["top"][ok.values] == scorable[ok.values])
-    gated = clf.attribute(feats.iloc[cut:], node="heldout",
+    gated = clf.attribute(feats[test], node="heldout",
                           min_posterior=min_posterior)
-    abstained, background = _decline_stats(gated, labels.iloc[cut:],
+    abstained, background = _decline_stats(gated, labels[test],
                                            clf.classes)
     stats = {
         "classes": list(clf.classes),
@@ -227,7 +240,7 @@ def attribute_all(products: Mapping[str, NodeProduct],
         "chance": round(1.0 / len(clf.classes), 4),
         "accuracy_above_060": round(float(correct[conf >= 0.60].mean()), 4),
         "share_of_hours_above_060": round(float((conf >= 0.60).mean()), 4),
-        "log_loss": round(clf.log_loss(feats.iloc[cut:], labels.iloc[cut:]), 4),
+        "log_loss": round(clf.log_loss(feats[test], labels[test]), 4),
         # Measured through attribute(), where the floor actually runs.
         # post["top"] is an argmax and can never equal the abstain token, so
         # the previous expression read 0.0 forever - a statistic that was
@@ -251,7 +264,7 @@ def attribute_all(products: Mapping[str, NodeProduct],
     # channels the answer actually rests on rather than only which way they
     # push. Scored out of sample: importance on the training rows describes how
     # well the model memorised them, which nobody is asking.
-    importance = clf.feature_importance(feats.iloc[cut:], labels.iloc[cut:])
+    importance = clf.feature_importance(feats[test], labels[test])
     stats["feature_importance"] = [
         {"feature": name,
          "importance_mean": round(float(row["importance_mean"]), 4),
@@ -262,7 +275,7 @@ def attribute_all(products: Mapping[str, NodeProduct],
     # as a probability and not just as a ranking. Scored on the held-out third
     # alongside the importance, for the same reason: an in-sample reliability
     # curve flatters every classifier ever fitted.
-    reliability = clf.confidence_calibration(feats.iloc[cut:], labels.iloc[cut:])
+    reliability = clf.confidence_calibration(feats[test], labels[test])
     stats["confidence_calibration"] = {
         "ece": round(expected_calibration_error(reliability), 4),
         "bins": reliability.to_dict(orient="records"),
