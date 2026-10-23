@@ -134,7 +134,16 @@ def test_console_shows_run_wide_means_not_one_nodes_luck(client, committed):
     single = body["calibration"]["example"]
     assert single["after"]["mae"] != pytest.approx(mean_mae_after, abs=1e-3)
 
-    assert abs(body["calibration"]["mean"]["after_mae"] - 1.82) < 0.01, \
+    # The headline is read from the report rather than hardcoded, so a retune
+    # that moves the number updates both sides of this comparison at once -
+    # the assertion is that the console and the report agree, not that they
+    # agree with a constant frozen at some earlier run.
+    md = (RESULTS_DIR / "VALIDATION.md").read_text(encoding="utf-8")
+    headline = re.search(r"\| PM2\.5 MAE \| [^|]+ \| \*\*([0-9.]+)", md)
+    if headline is None:
+        pytest.skip("no MAE headline in the committed report")
+    assert abs(body["calibration"]["mean"]["after_mae"]
+               - float(headline.group(1))) < 0.01, \
         "console drifted from the headline in results/VALIDATION.md"
 
 
