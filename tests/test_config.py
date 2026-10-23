@@ -99,6 +99,7 @@ def test_a_broken_prior_sum_is_rejected_not_renormalised(monkeypatch, tmp_path):
         "    features: {coarse_ratio: {direction: up, strength: 0.5}}\n"
         "    channels_simulated: []\n"
         "    corroborates: none\n"
+        "    published_share: [0.0, 0.5]\n"
         "baseline: {window_hours: 336}\n",
         encoding="utf-8",
     )
@@ -107,3 +108,41 @@ def test_a_broken_prior_sum_is_rejected_not_renormalised(monkeypatch, tmp_path):
                         __import__("yaml").safe_load(bad.read_text()))
     with pytest.raises(ConfigError, match="sum to"):
         cfg.load_signatures()
+
+
+def test_a_signature_without_a_share_band_is_rejected_not_guessed(monkeypatch,
+                                                                  tmp_path):
+    """The cross-check against receptor studies checks against these bands;
+    a source that declares none would silently be checked against nothing."""
+    import setu.config as cfg
+
+    bad = tmp_path / "signatures.yaml"
+    bad.write_text(
+        "sources:\n"
+        "  dust:\n"
+        "    label: x\n"
+        "    prior_weight: 1.0\n"
+        "    actionable_locally: true\n"
+        "    features: {coarse_ratio: {direction: up, strength: 0.5}}\n"
+        "    channels_simulated: []\n"
+        "    corroborates: none\n"
+        "baseline: {window_hours: 336}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cfg, "_read",
+                        lambda name: (__import__("yaml").safe_load(bad.read_text())
+                                      if name == "signatures.yaml"
+                                      else cfg.__dict__["_read"](name)))
+    with pytest.raises(ConfigError, match="published_share"):
+        cfg.load_signatures()
+
+
+def test_every_published_band_is_a_band():
+    sigs, _ = load_signatures()
+    for key, sig in sigs.items():
+        lo, hi = sig.published_share
+        assert 0.0 <= lo < hi <= 1.0, f"{key}: {sig.published_share}"
+    # Secondary has to start above zero: a band containing zero would let a
+    # classifier that never names it pass the cross-check.
+    assert sigs["secondary"].published_share[0] > 0.0
+    assert sigs["traffic_combustion"].published_share[0] > 0.0

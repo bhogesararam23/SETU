@@ -207,9 +207,10 @@ def attribute_all(products: Mapping[str, NodeProduct],
         share_rows.extend(attrs)
 
     shares = seasonal_shares(share_rows)
-    published = {"road_dust": (0.02, 0.45), "construction": (0.0, 0.20),
-                 "open_burning": (0.0, 0.30), "secondary": (0.10, 0.40),
-                 "traffic_combustion": (0.05, 0.25)}
+    # The band each source is checked against lives next to its signature and
+    # citation, so the cross-check and the literature cannot drift apart -
+    # they used to be a literal dict here that only this function knew about.
+    published = {key: sig.published_share for key, sig in sigs.items()}
     scorable = labels.iloc[cut:]
     post = clf.posterior(feats.iloc[cut:])
     ok = scorable.isin(list(clf.classes))

@@ -39,6 +39,11 @@ sources:
     channels_simulated: [coarse_ratio]
     corroborates: traffic_counts
     actionable_locally: true
+    # Share of attributed time a receptor-style apportionment would give it.
+    # Dust overall was 38-42% of summer PM10 (ARAI/CPCB, 2018) and road-dust
+    # resuspension is reported up to 79% of PM in individual studies, so the
+    # band is wide rather than precise.
+    published_share: [0.02, 0.45]
 
   construction:
     label: Construction and demolition dust
@@ -57,6 +62,10 @@ sources:
     channels_simulated: [coarse_ratio]
     corroborates: registered_site_within_200m
     actionable_locally: true
+    # 0% of winter PM2.5 at the Delhi supersite (AQuaIM/DPCC, 2023), and a
+    # small share of PM10 outside active demolition - the band starts at zero
+    # because that is what the measurements say.
+    published_share: [0.0, 0.20]
 
   open_burning:
     label: Open waste or biomass burning
@@ -78,6 +87,9 @@ sources:
     channels_simulated: []
     corroborates: viirs_fire_counts
     actionable_locally: true
+    # Biomass burning was 22% of winter PM2.5 and crop residue exceeded 35% on
+    # peak days at the Delhi supersite (AQuaIM/DPCC, 2023).
+    published_share: [0.0, 0.30]
 
   secondary:
     label: Secondary inorganic aerosol and regional transport
@@ -100,6 +112,9 @@ sources:
     channels_simulated: [upwind_excess]
     corroborates: upwind_node_excess
     actionable_locally: false
+    # Secondary ions were 26-32% of winter PM2.5 in the ARAI/CPCB receptor
+    # work, with 84% of it arriving from beyond 30 km.
+    published_share: [0.10, 0.40]
 
   traffic_combustion:
     label: Internal-combustion exhaust at a congested approach
@@ -117,6 +132,10 @@ sources:
     channels_simulated: []
     corroborates: junction_queue_length
     actionable_locally: true
+    # Exhaust plus non-exhaust traffic particulate as a share of receptor
+    # apportionment; non-exhaust alone is 73% of traffic-related PM10
+    # (Tian et al., ES&T 2022).
+    published_share: [0.05, 0.25]
 
 # Baseline used to form the *_excess features: a rolling site median over this
 # window, which is robust to the diurnal cycle without removing it entirely.

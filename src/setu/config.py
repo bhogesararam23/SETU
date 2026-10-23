@@ -158,6 +158,14 @@ class Signature:
     features: Mapping[str, tuple[str, float]]
     channels_simulated: tuple[str, ...]
     corroborates: str
+    published_share: tuple[float, float]
+
+    def __post_init__(self) -> None:
+        lo, hi = self.published_share
+        if not 0.0 <= lo <= hi <= 1.0:
+            raise ConfigError(
+                f"{self.key}: published_share {self.published_share} is not a "
+                "band in [0, 1]")
 
 
 def load_signatures() -> tuple[dict[str, Signature], int]:
@@ -172,6 +180,11 @@ def load_signatures() -> tuple[dict[str, Signature], int]:
         }
         weight = float(body["prior_weight"])
         total += weight
+        share = body.get("published_share")
+        if share is None or len(share) != 2:
+            raise ConfigError(
+                f"{where}: {key} has no published_share [low, high] - the "
+                "share cross-check would have nothing to check against")
         out[key] = Signature(
             key=key,
             label=str(body["label"]),
@@ -180,6 +193,7 @@ def load_signatures() -> tuple[dict[str, Signature], int]:
             features=feats,
             channels_simulated=tuple(body.get("channels_simulated", ())),
             corroborates=str(body.get("corroborates", "")),
+            published_share=(float(share[0]), float(share[1])),
         )
     if not out:
         raise ConfigError(f"{where}: no sources defined")
