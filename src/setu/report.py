@@ -219,6 +219,15 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
     add(f"- Hours the posterior floor declined to name: "
         f"**{att.get('abstained', 0.0):.1%}** - the gate refusing to guess is "
         "the gate doing its job, not a gap in the data")
+    bg = att.get("background_rejection") or {}
+    if bg.get("hours"):
+        add(f"- On the {bg['hours']:,} held-out hours the twin labelled "
+            f"background or mixed - nothing injected, or no single source won "
+            f"- the model declined **{bg['declined']:.1%}** and named a source "
+            f"on the rest. The {bg['misnamed']:.1%} misnamed is the "
+            "confabulation the reject class exists to shrink, and it is the "
+            "share by which the absolute numbers below are flattered if read "
+            "as a city apportionment.")
     add("")
     add("### Sign check against the published physics")
     add("")

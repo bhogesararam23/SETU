@@ -347,6 +347,62 @@ def test_the_posterior_floor_is_worth_enforcing(fitted):
     assert expected_calibration_error(table) < 0.30
 
 
+def test_a_reject_label_that_is_also_a_source_is_refused():
+    sigs, _ = load_signatures()
+    with pytest.raises(ConfigError, match="source classes too"):
+        SourceClassifier(sigs, reject_labels=("road_dust",))
+
+
+def test_background_hours_are_declined_not_folded_into_a_source(corpus):
+    """The confabulation the twin's labeller was designed to avoid.
+
+    regional_background and mixed are ~half the record. Fitted without a
+    reject class the classifier must name a culprit for every one of those
+    hours, and road dust - the most source-like thing in clean air - is what
+    it names. That is where the 59% road-dust share came from.
+    """
+    _, _, feats, labels, _, _ = corpus
+    sigs, _ = load_signatures()
+    cut = int(len(feats) * 0.6)
+    forced = SourceClassifier(sigs).fit(feats.iloc[:cut], labels.iloc[:cut])
+    learned = SourceClassifier(
+        sigs, reject_labels=("regional_background", "mixed")
+    ).fit(feats.iloc[:cut], labels.iloc[:cut])
+
+    held = feats.iloc[cut:]
+    held_labels = labels.iloc[cut:]
+    unnameable = ~held_labels.isin(list(learned.classes))
+    assert unnameable.any(), "this window has no background hours to test on"
+
+    a_forced = forced.attribute(held, node="h", min_posterior=0.45)
+    a_learned = learned.attribute(held, node="h", min_posterior=0.45)
+
+    def declined(rows, mask):
+        return (sum(1 for a, m in zip(rows, mask) if m and a.top == ABSTAIN)
+                / int(mask.sum()))
+
+    assert (declined(a_learned, unnameable.values)
+            > declined(a_forced, unnameable.values))
+
+    # The decline has to be because something else won, with the mass visible
+    # in the posterior - not because the source posterior quietly vanished.
+    reasons = [max(a.posterior, key=a.posterior.get)
+               for a, m in zip(a_learned, unnameable.values)
+               if m and a.top == ABSTAIN]
+    assert reasons, "background hours were declined without the reject mass winning"
+    assert any(r in ("regional_background", "mixed") for r in reasons)
+
+    # The posterior stays a distribution once the reject mass is in it.
+    for a in a_learned[:500]:
+        assert abs(sum(a.posterior.values()) - 1.0) < 1e-6
+        if a.top == ABSTAIN:
+            assert a.actionable is False
+
+    # Road dust stops being the answer to every hour nobody asked about.
+    assert (seasonal_shares(a_learned).get("road_dust", 0.0)
+            < seasonal_shares(a_forced).get("road_dust", 1.0))
+
+
 def test_the_abstain_statistic_counts_hours_the_gate_declined(corpus):
     """A statistic that reads 0.0 forever is not a measurement.
 
@@ -366,6 +422,10 @@ def test_the_abstain_statistic_counts_hours_the_gate_declined(corpus):
     }
     stats, _ = attribute_all(products, nodes, min_posterior=0.60)
     assert 0.0 < stats["abstained"] < 1.0
+    bg = stats["background_rejection"]
+    assert bg["hours"] > 0, "no unnameable hours in this window"
+    assert bg["declined"] is not None
+    assert abs(bg["declined"] + bg["misnamed"] - 1.0) < 1e-9
 
 
 def test_the_prior_blend_is_not_decorative(corpus):

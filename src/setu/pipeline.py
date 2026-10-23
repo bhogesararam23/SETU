@@ -151,13 +151,30 @@ def calibrate_all(t: twin.DigitalTwin, nodes: Sequence[grid.Node],
     return products, reports, transfer_diag
 
 
-def _abstain_rate(clf: SourceClassifier, held_out: pd.DataFrame,
-                  min_posterior: float) -> float:
-    """Fraction of hours the posterior floor declined to name a source."""
-    gated = clf.attribute(held_out, node="heldout", min_posterior=min_posterior)
+def _decline_stats(gated: Sequence, held_labels: pd.Series,
+                   classes: Sequence[str]) -> tuple[float, dict]:
+    """Two views of the same gate: how often it declined, and how well it
+    recognises the hours nothing was injected on.
+
+    `gated` must be attribute() output over exactly `held_labels`' rows, in
+    order - the confabulation rate is the fraction of unnameable hours the
+    model named a source for anyway, which is the number the reject class
+    exists to shrink.
+    """
     if not gated:
-        return 0.0
-    return float(sum(1 for a in gated if a.top == ABSTAIN) / len(gated))
+        return 0.0, {"hours": 0, "declined": None, "misnamed": None}
+    abstained = float(sum(1 for a in gated if a.top == ABSTAIN) / len(gated))
+    named = set(classes)
+    unnameable = [(a, str(lab)) for a, lab in zip(gated, held_labels)
+                  if str(lab) not in named]
+    if not unnameable:
+        return abstained, {"hours": 0, "declined": None, "misnamed": None}
+    declined = sum(1 for a, _ in unnameable if a.top == ABSTAIN) / len(unnameable)
+    return abstained, {
+        "hours": len(unnameable),
+        "declined": round(float(declined), 4),
+        "misnamed": round(float(1 - declined), 4),
+    }
 
 
 def attribute_all(products: Mapping[str, NodeProduct],
@@ -171,9 +188,16 @@ def attribute_all(products: Mapping[str, NodeProduct],
 
     cut = _split(len(feats))
     train_labels = labels.iloc[:cut]
-    present = sorted(set(str(v) for v in train_labels.unique()) & set(sigs))
+    label_set = set(str(v) for v in train_labels.unique())
+    present = sorted(label_set & set(sigs))
     excluded = sorted(set(sigs) - set(present))
-    clf = SourceClassifier(sigs, classes=present).fit(feats.iloc[:cut], train_labels)
+    # Whatever the twin labelled that is not a source - regional_background
+    # and mixed - is something the model must learn to recognise and then
+    # decline to name, not fold into whichever source it resembles. Fitted as
+    # reject classes; the classifier never emits them as an answer.
+    reject = sorted(label_set - set(sigs))
+    clf = SourceClassifier(sigs, classes=present,
+                           reject_labels=reject).fit(feats.iloc[:cut], train_labels)
 
     share_rows = []
     for nid, p in products.items():
@@ -191,6 +215,10 @@ def attribute_all(products: Mapping[str, NodeProduct],
     ok = scorable.isin(list(clf.classes))
     conf = post[list(clf.classes)].max(axis=1)[ok.values]
     correct = (post["top"][ok.values] == scorable[ok.values])
+    gated = clf.attribute(feats.iloc[cut:], node="heldout",
+                          min_posterior=min_posterior)
+    abstained, background = _decline_stats(gated, labels.iloc[cut:],
+                                           clf.classes)
     stats = {
         "classes": list(clf.classes),
         "scorable_hours": int(ok.sum()),
@@ -205,7 +233,8 @@ def attribute_all(products: Mapping[str, NodeProduct],
         # always zero and therefore always quoted. This counts every held-out
         # hour the gate declined to name, background ones included, because
         # those are exactly the hours a forced guess would confabulate.
-        "abstained": _abstain_rate(clf, feats.iloc[cut:], min_posterior),
+        "abstained": round(abstained, 4),
+        "background_rejection": background,
         "classes_fitted": list(clf.classes),
         "classes_excluded_for_no_training_data": excluded,
     }

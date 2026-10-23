@@ -149,7 +149,8 @@ class SourceClassifier:
     def __init__(self, signatures: Mapping[str, Signature],
                  blend: float = PRIOR_BLEND, random_state: int = 20261010,
                  c_param: float = 1.0,
-                 classes: Sequence[str] | None = None):
+                 classes: Sequence[str] | None = None,
+                 reject_labels: Sequence[str] = ()):
         """`classes` restricts the fitted label set.
 
         A short run over few nodes may never contain a rare source - a
@@ -158,6 +159,16 @@ class SourceClassifier:
         right for a validation run but too restrictive for an exploratory run, so the caller can
         narrow the class set instead; the priors are renormalised over what
         remains and the exclusion is reported rather than hidden.
+
+        `reject_labels` names the labels that are not sources at all - the
+        twin's regional_background and mixed hours, where nothing was injected
+        or no single source won. They are fitted as classes so the model learns
+        what an uneventful hour looks like, but they are never emitted as a
+        answer: winning on a reject label comes back as the abstain token.
+        Without them the classifier is made to pick a culprit on every hour,
+        which is exactly the confabulation the twin's labeller went out of its
+        way to avoid, and the shares it reports stop describing the city and
+        start describing its own forced choices.
         """
         if not 0.0 <= blend <= 1.0:
             raise ConfigError("blend must be in [0, 1]")
@@ -168,6 +179,12 @@ class SourceClassifier:
             raise ConfigError(f"unknown sources requested: {sorted(missing)}")
         self.classes = chosen
         self.excluded = tuple(sorted(available - set(chosen)))
+        self.reject = tuple(sorted(set(reject_labels)))
+        clash = set(self.reject) & set(self.classes)
+        if clash:
+            raise ConfigError(
+                f"reject labels {sorted(clash)} are source classes too")
+        self.fitted_classes = self.classes + self.reject
         raw = np.array([signatures[c].prior_weight for c in self.classes])
         total = float(raw.sum())
         if total <= 0:
@@ -187,7 +204,7 @@ class SourceClassifier:
         X, y = self._align(features, labels)
         if len(y) < 500:
             raise ConfigError(f"only {len(y)} labelled hours; refusing to fit")
-        missing = set(self.classes) - set(np.unique(y))
+        missing = set(self.fitted_classes) - set(np.unique(y))
         if missing:
             raise ConfigError(f"training set never contains {sorted(missing)}")
         self._mu = X.mean(axis=0)
@@ -209,7 +226,7 @@ class SourceClassifier:
         common = features.index.intersection(labels.index)
         f = features.loc[common, list(ATTR_FEATURES)].astype(float)
         lab = labels.loc[common].astype(str)
-        keep = f.notna().all(axis=1) & lab.isin(self.classes)
+        keep = f.notna().all(axis=1) & lab.isin(self.fitted_classes)
         return f[keep].to_numpy(), lab[keep].to_numpy()
 
     # -- predict -----------------------------------------------------------
@@ -219,22 +236,32 @@ class SourceClassifier:
         X = features.loc[:, list(ATTR_FEATURES)].astype(float).to_numpy()
         Z = (np.nan_to_num(X, nan=0.0) - self._mu) / self._sd
         p = self._model.predict_proba(Z)
+        # sklearn sorts the label set it fitted, and reject labels interleave
+        # with the sources alphabetically - so everything below indexes by
+        # name, never by position.
+        names = list(self._model.classes_)
 
         # Prior odds adjustment. blend=0 leaves the learned posterior alone;
         # blend=1 discards it. The exponent is applied to the ratio of prior to
         # uniform so a class the literature says is rare cannot be conjured by
-        # one unusual humidity reading.
+        # one unusual humidity reading. Reject labels carry the uniform prior:
+        # there is no published apportionment for "nothing was injected here",
+        # so their mass is whatever the data says and nothing else.
         if self.blend > 0:
-            uniform = 1.0 / len(self.classes)
-            tilt = (self.prior / uniform) ** self.blend
+            uniform = 1.0 / len(names)
+            source_pos = {c: i for i, c in enumerate(self.classes)}
+            prior = np.array([
+                float(self.prior[source_pos[n]]) if n in source_pos else uniform
+                for n in names])
+            tilt = (prior / uniform) ** self.blend
             p = p * tilt
             p = p / p.sum(axis=1, keepdims=True)
 
-        out = pd.DataFrame(p, index=features.index, columns=list(self.classes))
+        out = pd.DataFrame(p, index=features.index, columns=names)
         out["entropy"] = -(out * np.log(out.clip(lower=1e-12))).sum(axis=1) / math.log(
-            len(self.classes))
-        top = out[list(self.classes)].idxmax(axis=1)
-        ordered = np.sort(out[list(self.classes)].to_numpy(), axis=1)
+            len(names))
+        top = out[names].idxmax(axis=1)
+        ordered = np.sort(out[names].to_numpy(), axis=1)
         out["top"] = top
         out["margin"] = ordered[:, -1] - ordered[:, -2]
         return out
@@ -245,12 +272,21 @@ class SourceClassifier:
         out: list[Attribution] = []
         for at, row in post.iterrows():
             top = str(row["top"])
+            # The posterior dict keeps the reject mass, so the evidence pack
+            # shows why the hour was declined rather than only that it was.
+            spread = {c: float(row[c]) for c in self.fitted_classes}
+            if top in self.reject:
+                out.append(Attribution(
+                    at=at, node=node, posterior=spread, top=ABSTAIN,
+                    entropy=float(row["entropy"]), actionable=False,
+                    margin=float(row["margin"])))
+                continue
             conf = float(row[top])
             is_actionable = bool(self.actionable[self.classes.index(top)])
             clear = conf >= min_posterior
             out.append(Attribution(
                 at=at, node=node,
-                posterior={c: float(row[c]) for c in self.classes},
+                posterior=spread,
                 top=top if clear else ABSTAIN,
                 entropy=float(row["entropy"]),
                 actionable=bool(clear and is_actionable),
@@ -359,15 +395,18 @@ class SourceClassifier:
         """
         if self._model is None:
             raise ConfigError("call fit() first")
-        return pd.DataFrame(self._model.coef_, index=self.classes,
+        # Rows follow the label set sklearn fitted, which interleaves reject
+        # labels with the sources - named, not positional.
+        return pd.DataFrame(self._model.coef_,
+                            index=list(self._model.classes_),
                             columns=list(ATTR_FEATURES))
 
     def log_loss(self, features: pd.DataFrame, labels: pd.Series) -> float:
         X, y = self._align(features, labels)
         p = self.posterior(pd.DataFrame(X, columns=list(ATTR_FEATURES),
                                         index=features.index[: len(X)]))
-        return float(log_loss(y, p[list(self.classes)].to_numpy(),
-                              labels=list(self.classes)))
+        names = list(self._model.classes_)
+        return float(log_loss(y, p[names].to_numpy(), labels=names))
 
     def confidence_calibration(self, features: pd.DataFrame, labels: pd.Series,
                                n_bins: int = 10) -> pd.DataFrame:
