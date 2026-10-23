@@ -233,6 +233,24 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
         f"{sc['rh_on_secondary']:+.3f} |")
     add("")
 
+    importance = att.get("feature_importance") or []
+    if importance:
+        add("### What the answer rests on")
+        add("")
+        add("Permutation importance on held-out hours: how much accuracy the "
+            "model loses when one channel is shuffled out of the row. Scored "
+            "out of sample, so this describes what the prediction depends on "
+            "rather than what the fit memorised. A sign can be right and the "
+            "feature still worthless - this is the table that separates the "
+            "two.")
+        add("")
+        add("| Channel | Accuracy drop | Repeat sigma |")
+        add("| --- | --- | --- |")
+        for row in importance:
+            add(f"| {row['feature']} | {row['importance_mean']:+.3f} | "
+                f"{row['importance_std']:.3f} |")
+        add("")
+
     add("### Share cross-check against receptor studies - FAILS for two sources")
     add("")
     add("| Source | SETU share | Published range | Within? |")

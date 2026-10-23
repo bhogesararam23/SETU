@@ -239,6 +239,47 @@ class SourceClassifier:
         return out
 
     # -- diagnostics -------------------------------------------------------
+    def feature_importance(self, features: pd.DataFrame, labels: pd.Series,
+                           n_repeats: int = 10,
+                           random_state: int | None = None) -> pd.DataFrame:
+        """Permutation importance of each channel on held-out accuracy.
+
+        Coefficients say which way a feature pushes a class; this says how much
+        the prediction would fall apart without it. The two can disagree - a
+        feature can carry a strong sign and matter little once its correlated
+        neighbours are in the model - and the disagreement is worth seeing,
+        because a feature that is load-bearing and mis-signed is exactly the
+        spurious correlation this layer's sign check exists to catch.
+
+        Scored on whatever segment the caller passes, which in the pipeline is
+        the held-out third: importance measured on the training rows only would
+        describe how well the model memorised them.
+        """
+        from sklearn.inspection import permutation_importance
+
+        if self._model is None:
+            raise ConfigError("call fit() first")
+        X, y = self._align(features, labels)
+        if len(y) < 100:
+            raise ConfigError(
+                f"only {len(y)} rows to score importance on; refusing - a "
+                "repeated shuffle over a handful of rows is noise with a "
+                "confidence interval"
+            )
+        Z = (X - self._mu) / self._sd
+        result = permutation_importance(
+            self._model, Z, y, n_repeats=n_repeats,
+            random_state=(self.random_state if random_state is None
+                          else random_state),
+            scoring="accuracy", n_jobs=1,
+        )
+        out = pd.DataFrame({
+            "feature": list(ATTR_FEATURES),
+            "importance_mean": result.importances_mean,
+            "importance_std": result.importances_std,
+        }).set_index("feature")
+        return out.sort_values("importance_mean", ascending=False)
+
     def coefficients(self) -> pd.DataFrame:
         """Per-class standardised coefficients, so the model is inspectable.
 

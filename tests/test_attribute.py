@@ -163,6 +163,65 @@ def test_secondary_is_never_marked_actionable(fitted):
             assert a.actionable is False
 
 
+def test_feature_importance_scores_every_channel_once(fitted):
+    """Interpretability has to cover the whole design matrix, not a favourite.
+
+    A partial importance table is worse than none: a reader who sees four
+    channels ranked concludes the other eight do not matter, when they were
+    simply never scored.
+    """
+    model, feats, labels = fitted
+    imp = model.feature_importance(feats, labels, n_repeats=5)
+    assert list(imp.index) != []
+    assert set(imp.index) == set(ATTR_FEATURES)
+    assert np.isfinite(imp["importance_mean"].to_numpy()).all()
+    assert (imp["importance_std"] >= 0.0).all()
+    # Deterministic given the seed, so a re-run does not reshuffle the report.
+    again = model.feature_importance(feats, labels, n_repeats=5)
+    assert np.allclose(imp["importance_mean"], again["importance_mean"])
+
+
+def test_importance_puts_the_size_fraction_where_the_physics_puts_it(fitted):
+    """The whole novelty claim is that the size distribution separates sources.
+
+    If permuting the coarse channels costs less accuracy than permuting, say,
+    the hour encoding, then this classifier is reading the clock and the
+    published signatures are decoration - at which point no coefficient sign
+    in the file means anything.
+    """
+    model, feats, labels = fitted
+    imp = model.feature_importance(feats, labels, n_repeats=10)
+    top = list(imp.index[:4])
+    size = ["coarse_ratio", "log_coarse_count_ratio", "coarse_ugm3"]
+    named = [f for f in size if f in top]
+    assert len(named) >= 2, f"size-fraction channels ranked {named} outside {top}"
+    # The count ratio in particular is the channel this project's node exists
+    # to measure - if permuting it cost nothing, the hardware claim would be
+    # decoration whatever the mass channels did.
+    assert "log_coarse_count_ratio" in top
+    # And the physics must beat the clock: size fractions together are worth
+    # far more than the hour encoding, which classifies diurnal patterns rather
+    # than sources.
+    size_total = float(imp.loc[size, "importance_mean"].sum())
+    clock_total = float(imp.loc[["hour_sin", "hour_cos"], "importance_mean"].sum())
+    assert size_total > 3.0 * max(clock_total, 0.0)
+    # Importance is a delta in accuracy: the best channel must cost something.
+    assert imp["importance_mean"].iloc[0] > 0.01
+
+
+def test_importance_refuses_a_handful_of_rows(fitted):
+    model, feats, labels = fitted
+    with pytest.raises(ConfigError, match="refusing"):
+        model.feature_importance(feats.head(40), labels.head(40))
+
+
+def test_importance_before_fit_is_an_error(corpus):
+    sigs, _ = load_signatures()
+    _, _, feats, labels, _, _ = corpus
+    with pytest.raises(ConfigError, match="fit"):
+        SourceClassifier(sigs).feature_importance(feats, labels)
+
+
 def test_the_prior_blend_is_not_decorative(corpus):
     _, _, feats, labels, _, _ = corpus
     sigs, _ = load_signatures()

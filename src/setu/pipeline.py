@@ -201,6 +201,17 @@ def attribute_all(products: Mapping[str, NodeProduct],
             float(coef.loc["open_burning", "log_coarse_count_ratio"]), 3),
         "rh_on_secondary": round(float(coef.loc["secondary", "rh_frac"]), 3),
     }
+    # Permutation importance on the held-out third, so the report can say which
+    # channels the answer actually rests on rather than only which way they
+    # push. Scored out of sample: importance on the training rows describes how
+    # well the model memorised them, which nobody is asking.
+    importance = clf.feature_importance(feats.iloc[cut:], labels.iloc[cut:])
+    stats["feature_importance"] = [
+        {"feature": name,
+         "importance_mean": round(float(row["importance_mean"]), 4),
+         "importance_std": round(float(row["importance_std"]), 4)}
+        for name, row in importance.iterrows()
+    ]
     return stats, compare_to_receptor(shares, published)
 
 
