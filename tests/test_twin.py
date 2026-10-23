@@ -215,6 +215,53 @@ def test_injection_rates_are_configurable_not_lurking_in_the_body(background):
     assert mean(loud, nodes[0]) > mean(quiet, nodes[0])
 
 
+def test_truth_and_raw_are_pure_functions_of_the_node(twins):
+    """Calling truth() twice used to give a node two different burning
+    increments, because both calls drew from the twin's one shared RNG.
+
+    calibrate_all calls truth() and raw() different numbers of times for
+    donors and for transferred nodes, so a node's label near a tie depended
+    on the calibration schedule - and every script that built its own twin
+    disagreed with the pipeline about the same node.
+    """
+    site, df, nodes, t = twins
+    node = nodes[4]
+    first_truth = t.truth(node)
+    t.truth(nodes[0]), t.raw(nodes[1])          # unrelated calls in between
+    second_truth = t.truth(node)
+    pd.testing.assert_frame_equal(first_truth, second_truth)
+
+    first_raw = t.raw(node)
+    t.raw(nodes[2])
+    second_raw = t.raw(node)
+    pd.testing.assert_frame_equal(first_raw, second_raw)
+
+
+def test_the_injected_apportionment_sits_inside_the_published_bands(twins):
+    """The twin is calibrated to the literature before any model sees it.
+
+    This is the root of the share cross-check: if the generator's own label
+    shares are outside what receptor studies measured, no classifier trained
+    on it can pass the check, and one that did would be agreeing with the
+    twin rather than with the literature. Asserted at the truth level on the
+    same fixture the physics tests use.
+    """
+    from setu.config import load_signatures
+
+    site, df, nodes, t = twins
+    sigs, _ = load_signatures()
+    labels = pd.concat([t.truth(n)["dominant_source"] for n in nodes])
+    classifiable = labels[labels.isin(list(sigs))]
+    shares = classifiable.value_counts(normalize=True)
+    assert len(classifiable) > 0.2 * len(labels), "almost nothing was injected"
+    for key, sig in sigs.items():
+        lo, hi = sig.published_share
+        observed = float(shares.get(key, 0.0))
+        assert lo <= observed <= hi, (
+            f"{key}: twin injects {observed:.3f} of classifiable hours, "
+            f"outside the published {lo}-{hi}")
+
+
 def test_injected_summary_reports_the_background_it_used(twins):
     site, df, nodes, t = twins
     s = t.injected_summary()

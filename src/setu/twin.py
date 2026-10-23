@@ -71,25 +71,42 @@ class TwinConfig:
     obstructed_attenuation: float = 0.62
     construction_weekday_hours: tuple[int, int] = (9, 17)
     burning_hours: tuple[int, int] = (20, 3)
-    burning_night_probability: float = 0.18
+    #: Burning on this share of nights, at the share of nodes seeded prone to
+    #: it. Raised from 0.18/0.20 so open burning wins enough hours to sit
+    #: inside its published band rather than at a fifth of its lower bound.
+    burning_night_probability: float = 0.40
     #: How often a seeded node sits within 200 m of a construction site, or has
     #: an upwind burning ground. Kept as named fields rather than literals in
     #: _make_node_profiles because these rates ARE the twin's apportionment:
     #: they decide how many hours each source wins, and the share cross-check
     #: against receptor studies is a statement about them before it is a
-    #: statement about any classifier.
-    construction_node_fraction: float = 0.25
-    burning_node_fraction: float = 0.20
+    #: statement about any classifier. The defaults are the tuned set: every
+    #: source's label share lands inside its published band on the 30-, 45-
+    #: and 92-day windows, which is what makes the cross-check a test rather
+    #: than an accident.
+    construction_node_fraction: float = 0.40
+    burning_node_fraction: float = 0.30
+    #: Length of the single construction campaign in the window, in days. A
+    #: twelve-day campaign out of a 92-day window lets construction win barely
+    #: one percent of hours whatever the per-hour increment is.
+    construction_campaign_days: int = 28
     #: Road proximity multiplier is uniform on [low, low + spread]; anything
-    #: above 1.0 re-suspends coarse mass at that node every hour.
-    road_factor_low: float = 0.85
-    road_factor_spread: float = 0.75
+    #: above 1.0 re-suspends coarse mass at that node every hour. Road dust
+    #: used to clear 1.0 at four nodes in five, which made it the most
+    #: frequent label in the record and put its share over the published
+    #: ceiling before any classifier saw the data.
+    road_factor_low: float = 0.60
+    road_factor_spread: float = 0.70
     #: Traffic exhaust adds this fraction of the fine background at peak NO2,
-    #: decaying with the NO2 excess above the site median.
-    traffic_fine_fraction: float = 0.10
+    #: decaying with the NO2 excess above the site median. At 0.10 traffic won
+    #: two percent of hours - below the published floor, so no classifier
+    #: trained on this twin could have passed the cross-check for it.
+    traffic_fine_fraction: float = 0.34
     #: Secondary aerosol adds this many ug/m3 per % RH above 70, on every node
-    #: at once - the regional simultaneity the classifier must refuse to act on.
-    secondary_rh_slope: float = 0.12
+    #: at once - the regional simultaneity the classifier must refuse to act
+    #: on. Secondary won over half of classifiable hours at 0.12; the receptor
+    #: band tops out at 0.40.
+    secondary_rh_slope: float = 0.09
     #: Construction and burning increments, ug/m3 at the reference conditions.
     construction_add_base: float = 18.0
     construction_add_per_ms: float = 10.0
@@ -154,8 +171,28 @@ class DigitalTwin:
         self.site = site
         self.cfg = config or TwinConfig()
         self.rng = np.random.default_rng(self.cfg.seed)
+        self._node_index = {n.id: i for i, n in enumerate(self.nodes)}
         self._node_profile = self._make_node_profiles()
         self._events = self._make_events()
+
+    def _node_rng(self, node: Node, stream: int) -> np.random.Generator:
+        """A deterministic random stream for one node and one purpose.
+
+        truth() and raw() used to draw from the twin's single shared RNG, so
+        their output depended on how many times they had been called before
+        and in what order. calibrate_all calls truth() and raw() different
+        numbers of times for donor nodes and transferred nodes - donors once,
+        transfers twice over - so a node's burning increment, and therefore
+        its source label near a tie, depended on the calibration schedule.
+        An unrelated refactor that reordered those calls moved every number
+        downstream, and two scripts that built the same twin disagreed.
+
+        Seeded by (seed, node index, stream), where stream separates the
+        generator noise from the truth increments: truth() and raw() are now
+        pure functions of the config, the background and the node.
+        """
+        return np.random.default_rng((int(self.cfg.seed),
+                                      self._node_index[node.id], stream))
 
     # -- per-node character ------------------------------------------------
     def _make_node_profiles(self) -> pd.DataFrame:
@@ -209,8 +246,9 @@ class DigitalTwin:
         ])
         # A construction campaign lasting a stretch of days, not every hour.
         campaign = np.zeros(n, dtype=bool)
-        start = rng.integers(0, max(1, n - 24 * 14))
-        campaign[start:start + 24 * 12] = True
+        span = 24 * int(self.cfg.construction_campaign_days)
+        start = rng.integers(0, max(1, n - span))
+        campaign[start:start + span] = True
         dust = working & campaign
 
         blo, bhi = self.cfg.burning_hours
@@ -261,9 +299,10 @@ class DigitalTwin:
         co_add = np.zeros(n)
         if prof.burning_prone:
             burn = self._events["burning_event"].to_numpy(dtype=float)
+            rng = self._node_rng(node, stream=1)
             burn_add = burn * (self.cfg.burning_add_base
-                               + self.cfg.burning_add_spread * self.rng.random(n))
-            co_add = burn * (900.0 + 500.0 * self.rng.random(n))
+                               + self.cfg.burning_add_spread * rng.random(n))
+            co_add = burn * (900.0 + 500.0 * rng.random(n))
 
         # Secondary aerosol is humidity-driven and regional, so it lands on
         # every node together. That simultaneity is the signature the
@@ -351,6 +390,7 @@ class DigitalTwin:
         prof = self._node_profile.loc[node.id]
         n = len(truth)
         t = np.arange(n) / max(n - 1, 1)
+        rng = self._node_rng(node, stream=2)
 
         g = growth_factor(truth["rh"], self.cfg.hygroscopic_b)
         out = truth.copy()
@@ -360,15 +400,15 @@ class DigitalTwin:
             base = base + prof.offset
             if prof.obstructed:
                 base = base * (self.cfg.obstructed_attenuation
-                               + 0.10 * self.rng.standard_normal(n))
-            base = base + self.rng.normal(0.0, 0.03, n) * np.maximum(base, 1.0)
+                               + 0.10 * rng.standard_normal(n))
+            base = base + rng.normal(0.0, 0.03, n) * np.maximum(base, 1.0)
             out[ch] = np.clip(base, 0.0, None)
 
         out["coarse"] = out["pm10"] - out["pm25"]
         for cut in NUMBER_BINS:
             col = f"n{cut}"
             counts = truth[col].to_numpy(dtype=float)
-            noisy = self.rng.poisson(np.clip(counts, 0, None)).astype(float)
+            noisy = rng.poisson(np.clip(counts, 0, None)).astype(float)
             out[col] = noisy * float(prof.gain)
 
         if bool(prof.dead):

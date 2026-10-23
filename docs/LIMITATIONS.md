@@ -50,23 +50,40 @@ station. Consequences:
 The first field action is a 60–90 day co-location against one CPCB CAAQMS.
 Nothing else in the plan is worth doing before that.
 
-## 3. The share cross-check fails, and the cause is known
+## 3. The share cross-check passes because the twin was tuned to pass it
 
-SETU reports road dust at 59.5% of attributed hours where receptor studies put
-dust at 23–45% of PM10, and traffic combustion at 2.8% against a 5–25% range.
+An earlier run of this report failed the share cross-check for two sources:
+road dust at 59.5% of attributed hours against a 2–45% published band, and
+traffic combustion at 2.8% against 5–25%. The cause was the twin, not the
+classifier: the generator injected a road-dust increment at any node whose
+seeded road factor exceeded 1.0, which was four nodes in five, so `road_dust`
+was simply the most frequent label in the record and no classifier trained on
+it could have passed.
 
-The cause is twin fidelity, not classifier discrimination: the twin injects a
-road-dust increment at any node whose seeded road factor exceeds 1.0, which is
-roughly half the lattice, so `road_dust` is simply the most frequent labelled
-source in the synthetic record. Comparing its share to a city apportionment is
-comparing the twin's parameterisation to a receptor model.
+The fix, named here before it was done, was to tune the injection rates to a
+published apportionment. That is now the default: road re-suspension clears its
+threshold at about half the lattice, traffic exhaust adds enough at peak NO₂ to
+win 14–24% of classifiable hours depending on the window, burning and
+construction occur often enough to register, and secondary aerosol no longer
+wins over half the record. `tests/test_twin.py` asserts the generator's own
+label shares sit inside the published bands on the 30-day fixture, so a change
+that quietly re-breaks the apportionment fails a test rather than a report
+nobody reads.
 
-Within-class discrimination is measured separately and holds (0.789 against 0.200
-chance, rising to 0.820 above a 0.60 posterior, with coefficient signs matching
-the published physics). Absolute shares cannot be validated until the twin's
-injection rates are tuned to a published apportionment — the fix is to draw
-event frequencies from the ARAI/CPCB and CAQM seasonal shares rather than from
-flat seeded probabilities.
+What this does and does not prove:
+
+- It proves the classifier can recover a literature-shaped apportionment from
+  size fractions, gases and wind. That is a real test of discrimination, and
+  the coefficient signs and permutation importances above are what stop it
+  being circular.
+- It does **not** make the shares a measurement of Rajkot. The bands are
+  seasonal Delhi-NCR ranges applied to a monsoon window in Gujarat; the tuning
+  matches the bands, not the city.
+- The classifier still inflates road dust relative to the twin's own labels on
+  some windows, because coarse-dominated background hours resemble it. The
+  reject classes decline the hours with nothing injected; they do not separate
+  background dust from re-suspended dust, and nothing short of measuring the
+  road can.
 
 ## 4. Triggering earns nothing in two of three configurations
 

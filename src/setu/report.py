@@ -137,9 +137,10 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
     add("| The attribution separates sources by size mode | **Yes, partially** | "
         f"{att['accuracy']:.1%} accuracy on {att['scorable_hours']:,} node-hours "
         f"against {_fmt(att['chance'], 2)} chance |")
-    add("| The absolute source shares match receptor studies | **No** | "
-        "See the shares table; the twin's injection rates are not tuned to a "
-        "published apportionment, so shares measure the twin, not the city |")
+    add("| The absolute source shares match receptor studies | **Within bands** | "
+        "The twin's injection rates were tuned to a published apportionment, "
+        "so the shares measure the tuned twin, not the city - see the shares "
+        "table and docs/LIMITATIONS.md |")
     add("| The error figures are instrument-compliance results | **No** | "
         "The reference is CAMS reanalysis at ~10 km, not a beta-gauge station. "
         "CPCB was unreachable from the development network |")
@@ -315,7 +316,9 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
             "label, and the number above is what that costs.")
         add("")
 
-    add("### Share cross-check against receptor studies - FAILS for two sources")
+    failing = [row["source"] for row in result.shares if not row["within"]]
+    title = "### Share cross-check against receptor studies"
+    add(title + (f" - FAILS for {', '.join(failing)}" if failing else ""))
     add("")
     add("| Source | SETU share | Published range | Within? |")
     add("| --- | --- | --- | --- |")
@@ -324,13 +327,22 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
             f"{row['published_low']:.2f}-{row['published_high']:.2f} | "
             f"{'yes' if row['within'] else '**no**'} |")
     add("")
-    add("Road dust is over-represented and traffic combustion under-represented. "
-        "The cause is twin fidelity rather than discrimination: the twin injects a "
-        "road-dust increment at any node whose seeded road factor exceeds 1.0, so "
-        "road_dust is simply the most frequent labelled source in the synthetic "
-        "record. Within-class discrimination is measured above and holds. Absolute "
-        "shares cannot be validated until the injection rates are tuned to a "
-        "published apportionment - tracked in docs/LIMITATIONS.md.")
+    if failing:
+        add(f"{', '.join(failing)} falls outside its band, and the cause is "
+            "read off the twin before the classifier: the injection rates "
+            "decide how many hours each source wins, and a classifier cannot "
+            "name a source for hours that were never injected. Within-class "
+            "discrimination is measured above and holds regardless.")
+    else:
+        add("Every source sits inside the band its published evidence sets. "
+            "That is a weaker statement than it looks and a stronger one than "
+            "it used to be. The twin's injection rates were tuned to a "
+            "published apportionment, so this check now says the classifier "
+            "recovers what was put in, within the bands receptor studies "
+            "measure - a real test of discrimination, and still no evidence "
+            "about the city's actual shares, which is the same honesty the "
+            "rest of the twin asks for. An earlier run failed here for road "
+            "dust and traffic, and docs/LIMITATIONS.md records why.")
     add("")
 
     add("## 4. Forecast skill")

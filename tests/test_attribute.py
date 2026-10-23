@@ -472,4 +472,7 @@ def test_attribution_serialises_for_the_api(fitted):
     model, feats, _ = fitted
     d = model.attribute(feats.head(5), node="n")[0].as_dict()
     assert set(d) >= {"at", "node", "posterior", "top", "entropy", "actionable"}
-    assert abs(sum(d["posterior"].values()) - 1.0) < 1e-6
+    # as_dict rounds each class to four places for display, so the sum of the
+    # printed values is a distribution to within half a rounding step per
+    # class - five classes is 0.00025, not 1e-6.
+    assert abs(sum(d["posterior"].values()) - 1.0) < 1e-3
