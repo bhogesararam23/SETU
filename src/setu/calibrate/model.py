@@ -35,9 +35,9 @@ FEATURES: tuple[str, ...] = (
 )
 
 #: Quantile interval used to build the reported uncertainty.
-LOW_Q, HIGH_Q = 0.1, 0.9
+LOW_Q, HIGH_Q = 0.05, 0.95
 #: A normal-approximation divisor converting a 10-90 range into ~1 sigma.
-Z_90 = 2.5631
+Z_90 = 3.2897
 
 
 @dataclasses.dataclass(frozen=True)

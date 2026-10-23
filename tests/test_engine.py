@@ -97,11 +97,11 @@ def test_hysteresis_disarms_only_well_below_the_threshold(engine):
     engine.actions.clear()
     # 58 is below the 60 threshold but above the 51 disarm level, so the zone
     # must stay armed and be held back by dwell rather than by arming.
-    out = engine.update(obs(value=58.0, at=T0 + pd.Timedelta(hours=4)))
+    out = engine.update(obs(value=58.0, at=T0 + pd.Timedelta(4, unit="h")))
     assert isinstance(out, Suppressed)
     assert out.reason != "not_armed"
     # 45 is below the disarm level, so the zone is properly clear again.
-    out2 = engine.update(obs(value=45.0, at=T0 + pd.Timedelta(hours=5)))
+    out2 = engine.update(obs(value=45.0, at=T0 + pd.Timedelta(5, unit="h")))
     assert isinstance(out2, Suppressed) and out2.reason == "not_armed"
 
 
@@ -175,7 +175,7 @@ def test_action_carries_the_evidence_and_the_owner(engine):
 def test_recheck_time_follows_the_levers_half_life(engine):
     action = next(v for v in feed(engine, 6) if isinstance(v, Action))
     # Vacuum sweeping: 150 min half-life, dose at 0.75 of it.
-    assert action.recheck_at == action.dispatched_at + pd.Timedelta(minutes=112.5)
+    assert action.recheck_at == action.dispatched_at + pd.Timedelta(112.5, unit="min")
 
 
 def test_input_validation():
@@ -194,7 +194,7 @@ def test_dose_schedule_is_derived_from_decay_not_from_a_shift(table):
     notice = dose_schedule(table.levers["site_notice"], start, hours=24)
     assert len(sprinkling) > len(sweeping)          # shorter life, more doses
     assert len(notice) == 1                          # no measured decay -> one shot
-    assert sprinkling[1] - sprinkling[0] == pd.Timedelta(minutes=46.5)
+    assert sprinkling[1] - sprinkling[0] == pd.Timedelta(46.5, unit="min")
 
 
 def test_coverage_rises_with_dose_count(table):
@@ -261,8 +261,8 @@ def test_bad_inputs_are_refused():
 # -- closing the loop -------------------------------------------------------
 def _effect_series(action, cadence="10min", before=80.0, after=58.0):
     """Native-cadence observations either side of a dispatch."""
-    idx = pd.date_range(action.dispatched_at - pd.Timedelta(hours=6),
-                        action.dispatched_at + pd.Timedelta(hours=3), freq=cadence)
+    idx = pd.date_range(action.dispatched_at - pd.Timedelta(6, unit="h"),
+                        action.dispatched_at + pd.Timedelta(3, unit="h"), freq=cadence)
     rng = np.random.default_rng(0)
     values = [before if t < action.dispatched_at else after for t in idx]
     return pd.Series(values, index=idx) + rng.normal(0, 0.6, len(idx))
@@ -271,8 +271,8 @@ def _effect_series(action, cadence="10min", before=80.0, after=58.0):
 def test_effect_is_unscorable_at_hourly_cadence(engine):
     """Documents why the series must be native-cadence, not aggregated."""
     action = next(v for v in feed(engine, 6) if isinstance(v, Action))
-    idx = pd.date_range(action.dispatched_at - pd.Timedelta(hours=6),
-                        action.dispatched_at + pd.Timedelta(hours=3), freq="h")
+    idx = pd.date_range(action.dispatched_at - pd.Timedelta(6, unit="h"),
+                        action.dispatched_at + pd.Timedelta(3, unit="h"), freq="h")
     series = pd.Series([80.0] * len(idx), index=idx)
     assert engine.measure_effect(action, series).verdict == "insufficient_data"
 

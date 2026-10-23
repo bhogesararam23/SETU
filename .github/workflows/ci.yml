@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main, vibe/**]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        env:
+          PYTHONPATH: src
+        run: python -m pytest -v --tb=short
+
+  regression-gates:
+    name: Regression gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run regression gates
+        env:
+          PYTHONPATH: src
+          SETU_CACHE_DIR: data/fixtures/upstream
+          SETU_OFFLINE: 1
+        run: |
+          # Run the full pipeline and verify key metrics
+          python -m setu check --days 92 --threshold 15
+
+  offline-replay:
+    name: Offline replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Replay from snapshot
+        env:
+          PYTHONPATH: src
+          SETU_CACHE_DIR: data/fixtures/upstream
+          SETU_OFFLINE: 1
+        run: |
+          # This should reproduce the committed results exactly
+          python -m setu run --days 92 --threshold 15
