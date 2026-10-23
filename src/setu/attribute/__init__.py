@@ -8,6 +8,7 @@ from .classifier import (
     SourceClassifier,
     build_features,
     compare_to_receptor,
+    expected_calibration_error,
     seasonal_shares,
 )
 
@@ -19,5 +20,6 @@ __all__ = [
     "SourceClassifier",
     "build_features",
     "compare_to_receptor",
+    "expected_calibration_error",
     "seasonal_shares",
 ]

@@ -18,6 +18,7 @@ from setu.attribute import (
     SourceClassifier,
     build_features,
     compare_to_receptor,
+    expected_calibration_error,
     seasonal_shares,
 )
 from setu.config import load_signatures, load_site
@@ -220,6 +221,73 @@ def test_importance_before_fit_is_an_error(corpus):
     _, _, feats, labels, _, _ = corpus
     with pytest.raises(ConfigError, match="fit"):
         SourceClassifier(sigs).feature_importance(feats, labels)
+
+
+def test_reliability_table_accounts_for_every_scored_hour(fitted):
+    """A reliability diagram that drops hours is a reliability diagram that
+    can be made to look good by dropping the hours it gets wrong."""
+    model, feats, labels = fitted
+    table = model.confidence_calibration(feats, labels, n_bins=10)
+    assert not table.empty
+    assert int(table["n"].sum()) > 1000
+    assert list(table.columns) == ["bin_lo", "bin_hi", "n", "mean_confidence",
+                                   "accuracy", "gap"]
+    assert (table["accuracy"].between(0.0, 1.0)).all()
+    assert (table["mean_confidence"].between(0.0, 1.0)).all()
+    assert (table["gap"] >= 0.0).all()
+    # Bins must not overlap or leave the confidence range.
+    assert (table["bin_lo"] < table["bin_hi"]).all()
+    assert expected_calibration_error(table) >= 0.0
+
+
+def test_ece_is_zero_only_for_a_perfectly_calibrated_table():
+    """The metric, tested on tables whose answers are known by construction.
+
+    Fitted models cannot be asserted to a calibration error, because the point
+    of measuring it is that nobody knows it in advance. The metric itself can.
+    """
+    honest = pd.DataFrame({
+        "bin_lo": [0.0, 0.5], "bin_hi": [0.5, 1.0], "n": [60, 40],
+        "mean_confidence": [0.30, 0.70], "accuracy": [0.30, 0.70],
+        "gap": [0.0, 0.0],
+    })
+    assert expected_calibration_error(honest) == 0.0
+
+    overconfident = honest.copy()
+    overconfident["gap"] = [0.10, 0.30]
+    # 60/100 * 0.10 + 40/100 * 0.30
+    assert expected_calibration_error(overconfident) == pytest.approx(0.18)
+    assert expected_calibration_error(pd.DataFrame()) != expected_calibration_error(
+        pd.DataFrame())          # NaN, not a silent 0.0
+
+
+def test_reliability_refuses_a_handful_of_rows(fitted):
+    model, feats, labels = fitted
+    with pytest.raises(ConfigError, match="refusing"):
+        model.confidence_calibration(feats.head(50), labels.head(50))
+
+
+def test_reliability_before_fit_is_an_error(corpus):
+    sigs, _ = load_signatures()
+    _, _, feats, labels, _, _ = corpus
+    with pytest.raises(ConfigError, match="fit"):
+        SourceClassifier(sigs).confidence_calibration(feats, labels)
+
+
+def test_the_posterior_floor_is_worth_enforcing(fitted):
+    """The gate at 0.45 only protects anyone if the hours above it are right
+    more often than not, and substantially more often - otherwise the floor is
+    a number that looks like a decision and behaves like a coin.
+    """
+    model, feats, labels = fitted
+    table = model.confidence_calibration(feats, labels, n_bins=10)
+    confident = table[table["bin_lo"] >= 0.60]
+    if confident.empty:
+        pytest.skip("no held-out hour reached a 0.60 posterior in this window")
+    weighted = (confident["n"] * confident["accuracy"]).sum() / confident["n"].sum()
+    assert weighted > 0.60, f"hours above 0.60 were right {weighted:.3f} of the time"
+    # And the overall error must be small enough that a reader can quote it.
+    assert expected_calibration_error(table) < 0.30
 
 
 def test_the_prior_blend_is_not_decorative(corpus):

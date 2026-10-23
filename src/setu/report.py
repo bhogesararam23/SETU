@@ -251,6 +251,30 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
                 f"{row['importance_std']:.3f} |")
         add("")
 
+    reliability = att.get("confidence_calibration") or {}
+    bins = reliability.get("bins") or []
+    if bins:
+        add("### Is the posterior worth gating on?")
+        add("")
+        add("Every gate downstream is phrased as a probability, so the "
+            "probability has to mean what it says. Held-out hours binned by "
+            "the top-class posterior:")
+        add("")
+        add("| Posterior bin | Hours | Mean confidence | Accuracy | Gap |")
+        add("| --- | --- | --- | --- | --- |")
+        for b in bins:
+            add(f"| {b['bin_lo']:.2f}-{b['bin_hi']:.2f} | {b['n']:,} | "
+                f"{b['mean_confidence']:.3f} | {b['accuracy']:.3f} | "
+                f"{b['gap']:.3f} |")
+        add("")
+        ece = reliability.get("ece")
+        add(f"Expected calibration error **{_fmt(ece, 3)}**. A gate at "
+            "0.45 or 0.60 is only as strict as the bin it sits in: where the "
+            "gap is positive the model is more sure than it should be, which "
+            "makes every posterior floor slightly more permissive than its "
+            "label, and the number above is what that costs.")
+        add("")
+
     add("### Share cross-check against receptor studies - FAILS for two sources")
     add("")
     add("| Source | SETU share | Published range | Within? |")

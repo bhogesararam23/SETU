@@ -21,6 +21,7 @@ from .attribute import (
     SourceClassifier,
     build_features,
     compare_to_receptor,
+    expected_calibration_error,
     seasonal_shares,
 )
 from .calibrate import CalibrationModel, CusumMonitor, transfer_calibrate
@@ -212,6 +213,15 @@ def attribute_all(products: Mapping[str, NodeProduct],
          "importance_std": round(float(row["importance_std"]), 4)}
         for name, row in importance.iterrows()
     ]
+    # The engine gates on a posterior floor, so the posterior has to be checked
+    # as a probability and not just as a ranking. Scored on the held-out third
+    # alongside the importance, for the same reason: an in-sample reliability
+    # curve flatters every classifier ever fitted.
+    reliability = clf.confidence_calibration(feats.iloc[cut:], labels.iloc[cut:])
+    stats["confidence_calibration"] = {
+        "ece": round(expected_calibration_error(reliability), 4),
+        "bins": reliability.to_dict(orient="records"),
+    }
     return stats, compare_to_receptor(shares, published)
 
 

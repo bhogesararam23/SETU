@@ -298,6 +298,73 @@ class SourceClassifier:
         return float(log_loss(y, p[list(self.classes)].to_numpy(),
                               labels=list(self.classes)))
 
+    def confidence_calibration(self, features: pd.DataFrame, labels: pd.Series,
+                               n_bins: int = 10) -> pd.DataFrame:
+        """Reliability of the top-class posterior, binned by confidence.
+
+        Every downstream gate is phrased as a probability - the response engine
+        refuses to act below `min_source_posterior` - so the probability has to
+        mean something. A classifier whose 0.70 hours are right 55% of the time
+        has a gate that reads stricter than it is, and the operator has no way
+        to see that from an accuracy number averaged over all hours.
+
+        Equal-width bins on confidence, the standard reliability diagram:
+        comparing quantile bins would hide the tail, and the tail is where the
+        gate lives. Empty bins are dropped rather than reported as zero-count
+        rows with a fabricated accuracy.
+        """
+        if self._model is None:
+            raise ConfigError("call fit() first")
+        if n_bins < 2:
+            raise ConfigError("n_bins must be at least 2")
+        X, y = self._align(features, labels)
+        if len(y) < 100:
+            raise ConfigError(
+                f"only {len(y)} rows to calibrate against; refusing - a "
+                "reliability curve over a handful of rows is weather"
+            )
+        p = self.posterior(pd.DataFrame(X, columns=list(ATTR_FEATURES),
+                                        index=range(len(X))))
+        cols = list(self.classes)
+        top = p[cols].idxmax(axis=1).to_numpy()
+        confidence = p[cols].max(axis=1).to_numpy()
+        correct = (top == y).astype(float)
+
+        edges = np.linspace(0.0, 1.0, n_bins + 1)
+        which = np.clip(np.digitize(confidence, edges[1:-1], right=True),
+                        0, n_bins - 1)
+        rows = []
+        for b in range(n_bins):
+            mask = which == b
+            if not bool(mask.any()):
+                continue
+            acc = float(correct[mask].mean())
+            conf = float(confidence[mask].mean())
+            rows.append({
+                "bin_lo": round(float(edges[b]), 3),
+                "bin_hi": round(float(edges[b + 1]), 3),
+                "n": int(mask.sum()),
+                "mean_confidence": round(conf, 4),
+                "accuracy": round(acc, 4),
+                "gap": round(abs(acc - conf), 4),
+            })
+        return pd.DataFrame(rows)
+
+
+def expected_calibration_error(table: pd.DataFrame) -> float:
+    """ECE: the count-weighted |accuracy - confidence| over the bins.
+
+    Reads the table confidence_calibration() returns rather than the raw
+    predictions, so the number in the report and the table under it are
+    computed from the same rows and cannot drift apart.
+    """
+    if table.empty:
+        return float("nan")
+    total = float(table["n"].sum())
+    if total <= 0:
+        return float("nan")
+    return float((table["n"] * table["gap"]).sum() / total)
+
 
 def seasonal_shares(attributions: Sequence[Attribution]) -> pd.Series:
     """Time share per source, for comparison against receptor studies.
