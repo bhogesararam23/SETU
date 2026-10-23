@@ -92,6 +92,34 @@ def calibration_rows(summary: dict) -> list[tuple[str, str]]:
     ]
 
 
+def _missing(value) -> bool:
+    """True for None and NaN alike.
+
+    signature_agreement() emits None for a channel the node does not measure,
+    but the pandas round-trip coerces None to NaN inside a float column - so
+    every downstream check has to treat the two as the same absence, or the
+    report prints '+nan' where it means 'not measured'.
+    """
+    return value is None or (isinstance(value, float) and value != value)
+
+
+def _jsonable(obj):
+    """Replace NaN/inf with None so the payload is strict JSON.
+
+    NaN is not valid JSON: json.dumps writes it verbatim and the browser's
+    JSON.parse refuses it, so a single unmeasured channel used to make the
+    whole operator console unreadable. Null is the honest encoding of 'no
+    number here' and every consumer already handles it.
+    """
+    if isinstance(obj, dict):
+        return {k: _jsonable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_jsonable(v) for v in obj]
+    if isinstance(obj, float) and (obj != obj or obj in (float("inf"), float("-inf"))):
+        return None
+    return obj
+
+
 def to_json(result, directory: Path = RESULTS_DIR) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -109,7 +137,8 @@ def to_json(result, directory: Path = RESULTS_DIR) -> Path:
         "equal_cost": result.equal_cost,
     }
     path = directory / "validation.json"
-    path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+    path.write_text(json.dumps(_jsonable(payload), indent=2, default=str),
+                    encoding="utf-8")
     return path
 
 
@@ -137,7 +166,10 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
     add("| The attribution separates sources by size mode | **Yes, partially** | "
         f"{att['accuracy']:.1%} accuracy on {att['scorable_hours']:,} node-hours "
         f"against {_fmt(att['chance'], 2)} chance |")
-    add("| The absolute source shares match receptor studies | **Within bands** | "
+    failing_shares = [row["source"] for row in result.shares if not row["within"]]
+    share_verdict = (f"**No, fails for {', '.join(failing_shares)}**"
+                     if failing_shares else "**Within bands**")
+    add(f"| The absolute source shares match receptor studies | {share_verdict} | "
         "The twin's injection rates were tuned to a published apportionment, "
         "so the shares measure the tuned twin, not the city - see the shares "
         "table and docs/LIMITATIONS.md |")
@@ -262,7 +294,7 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
         add("| --- | --- | --- | --- | --- | --- |")
         for p in pairs:
             if p["agrees"] is None:
-                learned = ("-" if p["coefficient"] is None
+                learned = ("-" if _missing(p["coefficient"])
                            else f"{p['coefficient']:+.3f}")
                 add(f"| {p['source']} | {p['signature_feature']} | "
                     f"{p['direction']} | {learned} | {p['strength']:.2f} | "
