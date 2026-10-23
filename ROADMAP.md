@@ -74,12 +74,12 @@ This document tracks the systematic improvement of SETU from its current state (
 **Goal:** More accurate and interpretable source attribution
 
 #### Tasks:
-- [ ] Fix share cross-check failures (road_dust, traffic_combustion)
-- [ ] Improve classifier interpretability
-- [ ] Add feature importance analysis
-- [ ] Validate against published receptor study signatures
-- [ ] Improve handling of mixed/background sources
-- [ ] Add confidence calibration for posterior probabilities
+- [x] Fix share cross-check failures (road_dust, traffic_combustion)
+- [x] Improve classifier interpretability
+- [x] Add feature importance analysis
+- [x] Validate against published receptor study signatures
+- [x] Improve handling of mixed/background sources
+- [x] Add confidence calibration for posterior probabilities
 
 ### Milestone 5: Forecast Layer Improvements
 **Goal:** More accurate and actionable forecasts
