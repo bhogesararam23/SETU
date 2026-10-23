@@ -184,7 +184,11 @@ def test_shares_can_be_compared_to_receptor_studies(fitted):
     model, feats, _ = fitted
     attrs = model.attribute(feats, node="grid")
     shares = seasonal_shares(attrs)
-    assert 0.0 < shares.sum() <= 1.0
+    # value_counts(normalize=True) sums to one only up to floating point:
+    # across the whole grid the five shares accumulate ~2e-16 of error, and
+    # failing the cross-check on that would be a claim about probabilities that
+    # the arithmetic does not support.
+    assert 0.0 < shares.sum() <= 1.0 + 1e-9
     published = {"road_dust": (0.02, 0.45), "construction": (0.0, 0.20),
                  "open_burning": (0.0, 0.30), "secondary": (0.10, 0.40)}
     table = compare_to_receptor(shares, published)
