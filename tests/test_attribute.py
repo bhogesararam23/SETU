@@ -347,6 +347,27 @@ def test_the_posterior_floor_is_worth_enforcing(fitted):
     assert expected_calibration_error(table) < 0.30
 
 
+def test_the_abstain_statistic_counts_hours_the_gate_declined(corpus):
+    """A statistic that reads 0.0 forever is not a measurement.
+
+    The old pipeline line compared posterior()'s argmax against the abstain
+    token, which argmax can never return - so validation.json carried
+    abstained: 0.0 while the gate was declining hours all along. Computed
+    through attribute(), where the floor actually runs.
+    """
+    from setu.pipeline import NodeProduct, attribute_all
+
+    _, nodes, feats, labels, raws, truths = corpus
+    products = {
+        nid: NodeProduct(node=nid, truth=truths[nid], raw=raws[nid],
+                         calibrated=truths[nid], attributions=[],
+                         drift_alarms=0, calibration={})
+        for nid in raws
+    }
+    stats, _ = attribute_all(products, nodes, min_posterior=0.60)
+    assert 0.0 < stats["abstained"] < 1.0
+
+
 def test_the_prior_blend_is_not_decorative(corpus):
     _, _, feats, labels, _, _ = corpus
     sigs, _ = load_signatures()

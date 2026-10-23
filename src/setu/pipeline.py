@@ -151,6 +151,15 @@ def calibrate_all(t: twin.DigitalTwin, nodes: Sequence[grid.Node],
     return products, reports, transfer_diag
 
 
+def _abstain_rate(clf: SourceClassifier, held_out: pd.DataFrame,
+                  min_posterior: float) -> float:
+    """Fraction of hours the posterior floor declined to name a source."""
+    gated = clf.attribute(held_out, node="heldout", min_posterior=min_posterior)
+    if not gated:
+        return 0.0
+    return float(sum(1 for a in gated if a.top == ABSTAIN) / len(gated))
+
+
 def attribute_all(products: Mapping[str, NodeProduct],
                   nodes: Sequence[grid.Node], min_posterior: float
                   ) -> tuple[dict, pd.DataFrame]:
@@ -190,7 +199,13 @@ def attribute_all(products: Mapping[str, NodeProduct],
         "accuracy_above_060": round(float(correct[conf >= 0.60].mean()), 4),
         "share_of_hours_above_060": round(float((conf >= 0.60).mean()), 4),
         "log_loss": round(clf.log_loss(feats.iloc[cut:], labels.iloc[cut:]), 4),
-        "abstained": round(float((post["top"][ok.values] == ABSTAIN).mean()), 4),
+        # Measured through attribute(), where the floor actually runs.
+        # post["top"] is an argmax and can never equal the abstain token, so
+        # the previous expression read 0.0 forever - a statistic that was
+        # always zero and therefore always quoted. This counts every held-out
+        # hour the gate declined to name, background ones included, because
+        # those are exactly the hours a forced guess would confabulate.
+        "abstained": _abstain_rate(clf, feats.iloc[cut:], min_posterior),
         "classes_fitted": list(clf.classes),
         "classes_excluded_for_no_training_data": excluded,
     }

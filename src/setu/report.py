@@ -216,6 +216,9 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
     add(f"- Accuracy where the posterior exceeds 0.60: **{att['accuracy_above_060']:.3f}** "
         f"on {att['share_of_hours_above_060']:.1%} of hours")
     add(f"- Multinomial log loss: {_fmt(att['log_loss'], 4)}")
+    add(f"- Hours the posterior floor declined to name: "
+        f"**{att.get('abstained', 0.0):.1%}** - the gate refusing to guess is "
+        "the gate doing its job, not a gap in the data")
     add("")
     add("### Sign check against the published physics")
     add("")
