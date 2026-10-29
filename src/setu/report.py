@@ -680,6 +680,37 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
     add(f"- Background grid: {prov.get('grid_deg')} deg "
         f"(CAMS global ensemble), {prov.get('hourly_rows')} hours, "
         f"{prov.get('dropped_incomplete_hours')} dropped for missing meteorology")
+    if prov.get("fingerprint"):
+        add(f"- Data fingerprint: `{prov['fingerprint']}` over the six required "
+            "channels. Two runs that disagree can check here whether they read "
+            "the same numbers before anyone reads the code.")
+    stale = prov.get("stale_cache_responses")
+    if stale:
+        add(f"- {stale} of {len(prov.get('background', []))} upstream responses "
+            "were served past their TTL from the cache, because this run was "
+            "offline. Offline on the committed snapshot is a supported path, "
+            "and the flag is here so it is not mistaken for a live run.")
+    quality = prov.get("quality") or {}
+    if quality:
+        add(f"- Integrity: {quality['rows']:,} of {quality['expected_hours']:,} "
+            f"expected hours ({quality['coverage']:.1%}), largest gap "
+            f"{quality['largest_gap_hours']} h, "
+            f"{quality['duplicate_timestamps']} duplicate timestamps")
+        problems = quality.get("problems") or []
+        if problems:
+            add(f"- **Quality problems: {'; '.join(problems)}**")
+        else:
+            add("- No quality problem was found in the background frame: "
+                "coverage, gaps, duplicates, physical ranges and frozen-channel "
+                "runs all pass. That is a check on the frame this run read, not "
+                "on CAMS.")
+    sources = prov.get("sources") or {}
+    if sources.get("probed"):
+        down = sources.get("degraded") or []
+        add(f"- Upstreams at run time: "
+            f"{'all reachable' if not down else 'degraded - ' + ', '.join(down)}")
+    elif sources:
+        add(f"- Upstreams at run time: not probed ({sources.get('reason')})")
     inj = prov.get("injected", {})
     add(f"- Twin: seed {inj.get('seed')}, {inj.get('dust_event_hours')} dust-event "
         f"hours, {inj.get('burning_event_hours')} burning-event hours, "

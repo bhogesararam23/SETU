@@ -229,6 +229,11 @@ Drift is the documented reason CPCB does not accept low-cost data for regulatory
 - `open-meteo-air-quality` fetched 2026-10-10T21:41:02Z (cache)
 - `open-meteo-forecast` fetched 2026-10-10T21:41:04Z (cache)
 - Background grid: 0.1 deg (CAMS global ensemble), 1772 hours, 436 dropped for missing meteorology
+- Data fingerprint: `3b267a55eb6ab2bc` over the six required channels. Two runs that disagree can check here whether they read the same numbers before anyone reads the code.
+- 2 of 2 upstream responses were served past their TTL from the cache, because this run was offline. Offline on the committed snapshot is a supported path, and the flag is here so it is not mistaken for a live run.
+- Integrity: 1,772 of 1,772 expected hours (100.0%), largest gap 0 h, 0 duplicate timestamps
+- No quality problem was found in the background frame: coverage, gaps, duplicates, physical ranges and frozen-channel runs all pass. That is a check on the frame this run read, not on CAMS.
+- Upstreams at run time: not probed (SETU_OFFLINE is set; no network request was made)
 - Twin: seed 20261010, 160 dust-event hours, 239 burning-event hours, 2 dead nodes, 3 obstructed, 8 drifting
 
 **Every concentration produced by the twin is simulated.** The background it is derived from is real and hourly; the grid is not, because the hardware does not exist yet.

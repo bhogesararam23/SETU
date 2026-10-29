@@ -36,6 +36,7 @@ from .forecast import (
 )
 from .io import openmeteo as om
 from .io.cache import HttpCache
+from .io.sources import probe as probe_sources
 from .metrics import score
 from .respond import (Observation, ResponseEngine, dispatch_plan,
                       roster_vs_triggered)
@@ -602,6 +603,13 @@ def run(site_name: str = "rajkot", past_days: int = 92,
               f"background mean {hourly['pm25'].mean():.1f} "
               f"max {hourly['pm25'].max():.1f}")
 
+    # One flow-level health check per run, and none at all when offline: an
+    # offline run checked nothing, and reporting "unreachable" would blame the
+    # network for a flag we set ourselves. `setu sources` is the full probe.
+    sources_report = probe_sources(site, cache, timeout=4.0)
+    if verbose and sources_report.get("probed"):
+        print(f"[setu] upstream: {'all reachable' if sources_report['reachable'] else 'degraded: ' + ', '.join(sources_report['degraded'])}")
+
     products, cal_reports, transfer = calibrate_all(t, nodes, threshold)
     if verbose:
         print(f"[setu] calibrated {len(products)} nodes")
@@ -657,6 +665,14 @@ def run(site_name: str = "rajkot", past_days: int = 92,
             "dropped_incomplete_hours": int(
                 hourly.attrs.get("dropped_incomplete_hours", 0)),
             "grid_deg": hourly.attrs.get("grid_deg"),
+            # The digest of the exact numbers this run read. Two runs that
+            # disagree can establish whether they read the same data before
+            # anyone reads the code.
+            "fingerprint": hourly.attrs.get("fingerprint"),
+            "quality": hourly.attrs.get("quality"),
+            "stale_cache_responses": int(hourly.attrs.get("stale_responses", 0)),
+            "cache": cache.stats(),
+            "sources": sources_report,
             "injected": t.injected_summary(),
             "health": _health_records(t),
         },
