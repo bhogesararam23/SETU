@@ -221,3 +221,63 @@ def test_offline_mode_still_refuses_a_url_that_was_never_fetched(monkeypatch,
     cache = HttpCache(directory=tmp_path / "empty")
     with pytest.raises(UpstreamUnavailable):
         cache.get_json("https://example.test/never-fetched", ttl_seconds=60)
+
+
+# -- expiry and inspection --------------------------------------------------
+def test_entries_report_the_url_behind_the_hash(cache):
+    cache._session.responses = [{"body": {"a": 1}}]
+    cache.get_json("https://example.test/one", ttl_seconds=60)
+    entries = cache.entries()
+    assert len(entries) == 1
+    assert entries[0]["url"] == "https://example.test/one"
+    assert entries[0]["bytes"] > 0
+    assert cache.stats()["oldest_age_hours"] is not None
+
+
+def test_prune_drops_entries_past_their_age(cache):
+    cache._session.responses = [{"body": {"a": 1}}, {"body": {"b": 2}}]
+    cache.get_json("https://example.test/old", ttl_seconds=60)
+    cache.get_json("https://example.test/new", ttl_seconds=60)
+    # Age one of them by rewriting its sidecar, which is what the passage of
+    # time does to it.
+    body, meta = cache._paths("https://example.test/old")
+    record = json.loads(meta.read_text())
+    record["fetched_at"] = time.time() - 40 * 86400
+    meta.write_text(json.dumps(record))
+
+    removed = cache.prune(max_age_seconds=30 * 86400)
+    assert removed == ["https://example.test/old"]
+    assert [e["url"] for e in cache.entries()] == ["https://example.test/new"]
+
+
+def test_prune_by_size_keeps_the_newest(cache):
+    cache._session.responses = [{"body": {"a": "x" * 2000}},
+                               {"body": {"b": "y" * 2000}}]
+    cache.get_json("https://example.test/a", ttl_seconds=60)
+    time.sleep(0.01)
+    cache.get_json("https://example.test/b", ttl_seconds=60)
+    total = cache.stats()["bytes"]
+    removed = cache.prune(max_bytes=total - 1)
+    assert len(removed) == 1
+    # The oldest goes first, never the freshest one.
+    assert removed == ["https://example.test/a"]
+
+
+def test_prune_without_a_limit_is_refused(cache):
+    with pytest.raises(ValueError):
+        cache.prune()
+
+
+def test_a_stale_offline_response_is_labelled_stale(tmp_path, monkeypatch):
+    monkeypatch.setenv(cache_mod.OFFLINE_ENV, "1")
+    c = HttpCache(directory=tmp_path / "cache")
+    c._session = FakeSession([{"body": {"a": 1}}])
+    c._write("https://example.test/x", {"a": 1}, time.time() - 100)
+    resp = c.get_json("https://example.test/x", ttl_seconds=1)
+    assert resp.from_cache is True
+    assert resp.stale is True
+    from setu.io.openmeteo import Provenance
+
+    prov = Provenance()
+    prov.add("x", resp)
+    assert prov.stale == 1

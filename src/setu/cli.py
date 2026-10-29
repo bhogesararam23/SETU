@@ -183,6 +183,40 @@ def _cmd_bom(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_sources(args: argparse.Namespace) -> int:
+    """Probe every upstream, not just the reference station."""
+    from .io.sources import probe
+
+    site = load_site(args.site)
+    report = probe(site, HttpCache(), timeout=args.timeout)
+    print(json.dumps(report, indent=2))
+    if not report.get("probed"):
+        # Offline is a supported mode, not a failure - but it did not check
+        # anything, so it cannot report the network as healthy either.
+        return 0
+    return 0 if report.get("reachable") else 1
+
+
+def _cmd_cache(args: argparse.Namespace) -> int:
+    cache = HttpCache()
+    if args.prune_age_days is not None or args.prune_bytes is not None:
+        removed = cache.prune(
+            max_age_seconds=(args.prune_age_days * 86400.0
+                             if args.prune_age_days is not None else None),
+            max_bytes=args.prune_bytes)
+        print(f"pruned {len(removed)} entries")
+        for url in removed[:args.show]:
+            print(f"  {url}")
+        if len(removed) > args.show:
+            print(f"  ... and {len(removed) - args.show} more")
+    print(json.dumps(cache.stats(), indent=2))
+    if args.list:
+        for entry in cache.entries()[:args.show]:
+            print(f"  {entry['fetched_at_iso']}  {entry['age_seconds'] / 3600:8.1f} h  "
+                  f"{entry['url'][:110]}")
+    return 0
+
+
 def _cmd_config(args: argparse.Namespace) -> int:
     site = load_site(args.site)
     sigs, window = load_signatures()
@@ -218,6 +252,19 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("probe-upstream",
                        help="report which data sources are reachable")
     p.set_defaults(func=_cmd_probe_upstream)
+
+    p = sub.add_parser("sources", help="probe every upstream and report status")
+    p.add_argument("--timeout", type=float, default=8.0)
+    p.set_defaults(func=_cmd_sources)
+
+    p = sub.add_parser("cache", help="inspect or prune the HTTP cache")
+    p.add_argument("--list", action="store_true", help="list entries, oldest first")
+    p.add_argument("--show", type=int, default=10)
+    p.add_argument("--prune-age-days", type=float,
+                   help="drop entries older than this many days")
+    p.add_argument("--prune-bytes", type=int,
+                   help="drop the oldest entries until the cache is under this size")
+    p.set_defaults(func=_cmd_cache)
 
     p = sub.add_parser("run", help="full pipeline, writes results/")
     p.add_argument("--days", type=int, default=92)

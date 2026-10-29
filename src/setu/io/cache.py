@@ -54,6 +54,11 @@ class CachedResponse:
     from_cache: bool
     age_seconds: float
     payload: Any
+    #: True when this was served past its TTL because the run was offline.
+    #: Offline mode used to do that silently, which meant a report could quote a
+    #: week-old forecast as if it were today's and nothing said so. The flag is
+    #: what the provenance block reads to say how many responses were stale.
+    stale: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -63,6 +68,7 @@ class CachedResponse:
             ),
             "from_cache": self.from_cache,
             "age_seconds": round(self.age_seconds, 1),
+            "stale": self.stale,
         }
 
 
@@ -135,7 +141,11 @@ class HttpCache:
             payload, fetched_at = cached
             age = now - fetched_at
             if age <= ttl_seconds or offline_only():
-                return CachedResponse(url, fetched_at, True, age, payload)
+                # Serving stale offline is deliberate - a demonstration should
+                # prefer a real number from last week to no number - but it is
+                # now labelled, and the run reports how often it happened.
+                return CachedResponse(url, fetched_at, True, age, payload,
+                                      stale=age > ttl_seconds)
 
         if offline_only():
             raise UpstreamUnavailable(
@@ -171,17 +181,85 @@ class HttpCache:
 
         if cached is not None:
             payload, fetched_at = cached
-            return CachedResponse(url, fetched_at, True, now - fetched_at, payload)
+            return CachedResponse(url, fetched_at, True, now - fetched_at, payload,
+                                  stale=True)
 
         raise UpstreamUnavailable(url.split("/")[2], f"unreachable ({last_error})")
 
+    def entries(self) -> list[dict[str, Any]]:
+        """Every cached response with its URL, age and size.
+
+        The cache is keyed by a hash, so without this the directory is opaque:
+        an operator can see 300 files and not one URL. Reading the URL back out
+        of the sidecar is what makes expiry a decision rather than a guess.
+        """
+        if not self.dir.exists():
+            return []
+        now = time.time()
+        out: list[dict[str, Any]] = []
+        for meta in sorted(self.dir.glob("*.meta.json")):
+            try:
+                record = json.loads(meta.read_text(encoding="utf-8"))
+                url = str(record["url"])
+                fetched_at = float(record["fetched_at"])
+            except (ValueError, OSError, KeyError):
+                continue
+            body = meta.with_name(meta.name.replace(".meta.json", ".json"))
+            out.append({
+                "url": url,
+                "fetched_at": fetched_at,
+                "fetched_at_iso": time.strftime(
+                    "%Y-%m-%dT%H:%M:%SZ", time.gmtime(fetched_at)),
+                "age_seconds": round(now - fetched_at, 1),
+                "bytes": body.stat().st_size if body.exists() else 0,
+            })
+        # Sorted on the float, not on the ISO string: two entries written in the
+        # same second tie on the string and prune would then delete an arbitrary
+        # one of them.
+        return sorted(out, key=lambda e: e["fetched_at"])
+
+    def prune(self, max_age_seconds: float | None = None,
+              max_bytes: int | None = None) -> list[str]:
+        """Delete cache entries, oldest first, and return the URLs removed.
+
+        Two ways to run out of room, so two limits: age (a 90-day-old weather
+        response is not evidence) and total size (a CI runner with a small
+        disk). Age is applied first, then size, so a byte cap can never keep a
+        stale entry at the expense of a fresh one.
+        """
+        if max_age_seconds is None and max_bytes is None:
+            raise ValueError("prune needs max_age_seconds, max_bytes, or both")
+        entries = self.entries()
+        removed: set[str] = set()
+        if max_age_seconds is not None:
+            for entry in entries:
+                if entry["age_seconds"] > max_age_seconds:
+                    removed.add(entry["url"])
+        remaining = [e for e in entries if e["url"] not in removed]
+        if max_bytes is not None:
+            total = sum(e["bytes"] for e in remaining)
+            for entry in remaining:          # already oldest-first
+                if total <= max_bytes:
+                    break
+                removed.add(entry["url"])
+                total -= entry["bytes"]
+        for url in removed:
+            body, meta = self._paths(url)
+            for path in (body, meta):
+                try:
+                    path.unlink()
+                except FileNotFoundError:
+                    pass
+        return sorted(removed)
+
     def stats(self) -> dict[str, Any]:
-        files = list(self.dir.glob("*.json")) if self.dir.exists() else []
-        bodies = [f for f in files if f.suffix == ".json"
-                  and not f.name.endswith(".meta.json")]
+        entries = self.entries()
+        ages = [e["age_seconds"] for e in entries]
         return {
             "directory": str(self.dir),
-            "entries": len(bodies),
-            "bytes": sum(f.stat().st_size for f in bodies) if bodies else 0,
+            "entries": len(entries),
+            "bytes": sum(e["bytes"] for e in entries),
+            "oldest_age_hours": round(max(ages) / 3600, 1) if ages else None,
+            "newest_age_hours": round(min(ages) / 3600, 1) if ages else None,
             "offline_only": offline_only(),
         }
