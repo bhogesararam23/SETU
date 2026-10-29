@@ -133,7 +133,7 @@ pip install -r requirements.txt
 export PYTHONPATH=src    # or pip install -e .
                          # Windows cmd: set PYTHONPATH=src
 
-pytest                       # 209 tests, no network needed
+pytest                       # full offline test suite
 python -m setu check         # fast end-to-end run, headline numbers to stdout
 python -m setu run           # full run, writes results/VALIDATION.md + .json
 python -m setu serve         # operator console on http://127.0.0.1:8090
@@ -195,16 +195,17 @@ src/setu/
   api/         FastAPI operator service
 dashboard/     operator console, no build step
 firmware/      ESP32-S3 node, BOM, wiring — designed, not built
-tests/         209 tests, all offline - HTTP is faked, so CI needs no network
+tests/         offline test suite; CI uses the committed Open-Meteo snapshot
 docs/          architecture, data sources, validation protocol, limitations
 results/       generated output, committed so the repo is readable without running it
 data/fixtures/ committed snapshot of the real upstream responses (see its README)
 ```
 
-Automated GitHub Actions CI is not currently configured on `main`. Before
-relying on a code change, run the test suite and the offline end-to-end replay
-locally; `docs/VALIDATION_PROTOCOL.md` documents the validation protocol and
-its current evidence.
+GitHub Actions CI runs the offline test suite, regression gates, and a full
+replay against the committed Open-Meteo snapshot. The unit-test job sets
+`SETU_CACHE_DIR=data/fixtures/upstream` and `SETU_OFFLINE=1` so the suite does
+not depend on live upstream responses. See `.github/workflows/ci.yml` and
+`docs/VALIDATION_PROTOCOL.md` for the validation protocol and current evidence.
 
 ## Design decisions worth arguing about
 
