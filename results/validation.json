@@ -56,14 +56,14 @@
         "url": "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=22.3039&longitude=70.7962&hourly=pm2_5,pm10,carbon_monoxide,nitrogen_dioxide,ozone,sulphur_dioxide,dust,aerosol_optical_depth&past_days=92&forecast_days=0&timezone=Asia/Kolkata&wind_speed_unit=ms",
         "fetched_at_iso": "2026-10-10T21:41:02Z",
         "from_cache": true,
-        "age_seconds": 1102992.5
+        "age_seconds": 1645406.6
       },
       {
         "label": "open-meteo-forecast",
         "url": "https://api.open-meteo.com/v1/forecast?latitude=22.3039&longitude=70.7962&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,surface_pressure,boundary_layer_height&past_days=92&forecast_days=0&timezone=Asia/Kolkata&wind_speed_unit=ms",
         "fetched_at_iso": "2026-10-10T21:41:04Z",
         "from_cache": true,
-        "age_seconds": 1102991.3
+        "age_seconds": 1645405.4
       }
     ],
     "hourly_rows": 1772,
@@ -2941,13 +2941,19 @@
           "fold": 2
         }
       ],
+      "nodes_beating_persistence": 3,
+      "nodes_compared": 40,
+      "bias": -0.2364,
       "diagnostics": {
         "nodes_total": 40,
         "nodes_scored": 40,
         "nodes_skipped": 0,
         "folds_scored": 120,
         "folds_skipped": 0,
-        "rows_missing_met": 960
+        "rows_missing_met": 0,
+        "rows_warmup": 960,
+        "met_hours_bridged": 0,
+        "warmup_hours": 24
       }
     },
     {
@@ -3010,13 +3016,19 @@
           "fold": 2
         }
       ],
+      "nodes_beating_persistence": 2,
+      "nodes_compared": 40,
+      "bias": -0.4944,
       "diagnostics": {
         "nodes_total": 40,
         "nodes_scored": 40,
         "nodes_skipped": 0,
         "folds_scored": 120,
         "folds_skipped": 0,
-        "rows_missing_met": 960
+        "rows_missing_met": 0,
+        "rows_warmup": 960,
+        "met_hours_bridged": 0,
+        "warmup_hours": 24
       }
     },
     {
@@ -3079,13 +3091,19 @@
           "fold": 2
         }
       ],
+      "nodes_beating_persistence": 2,
+      "nodes_compared": 40,
+      "bias": -1.2232,
       "diagnostics": {
         "nodes_total": 40,
         "nodes_scored": 40,
         "nodes_skipped": 0,
         "folds_scored": 120,
         "folds_skipped": 0,
-        "rows_missing_met": 960
+        "rows_missing_met": 0,
+        "rows_warmup": 960,
+        "met_hours_bridged": 0,
+        "warmup_hours": 24
       }
     }
   ],
