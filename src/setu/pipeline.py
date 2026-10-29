@@ -37,7 +37,8 @@ from .forecast import (
 from .io import openmeteo as om
 from .io.cache import HttpCache
 from .metrics import score
-from .respond import Observation, ResponseEngine, roster_vs_triggered
+from .respond import (Observation, ResponseEngine, dispatch_plan,
+                      roster_vs_triggered)
 
 
 @dataclasses.dataclass
@@ -467,6 +468,71 @@ def _spread(rows: list[dict], limit: int) -> list[dict]:
     return out
 
 
+def _effect_audit(engine, products: Mapping[str, NodeProduct],
+                  limit: int = 40) -> dict:
+    """Push a sample of dispatches through the effect framework.
+
+    The twin contains no intervention dynamics: no lever's published effect was
+    ever injected into the concentration field. So the correct answer here is a
+    null, and this is the run that shows the framework can produce one. A
+    positive adjusted effect would mean the measurement is picking up weather,
+    which is exactly what the untreated-node control exists to remove.
+
+    The panel is hourly, which is already too coarse to score a 62-minute
+    lever - the framework says so per action rather than inventing a half-life
+    from two samples - so `insufficient_data` is the expected verdict as well.
+    """
+    if not engine.actions:
+        return {"attempted": 0, "verdicts": {},
+                "note": "no dispatches in this window to score"}
+    panel = pd.concat({nid: p.calibrated["value"]
+                       for nid, p in products.items()}, axis=1)
+    step = max(1, len(engine.actions) // limit)
+    verdicts: dict[str, int] = {}
+    adjusted: list[float] = []
+    for action in engine.actions[::step][:limit]:
+        if action.node not in panel.columns:
+            continue
+        control = panel.drop(columns=[action.node]).median(axis=1)
+        result = engine.measure_effect(action, panel[action.node].dropna(),
+                                       control=control)
+        verdicts[result.verdict] = verdicts.get(result.verdict, 0) + 1
+        if result.adjusted_pct is not None and np.isfinite(result.adjusted_pct):
+            adjusted.append(result.adjusted_pct)
+    return {
+        "attempted": sum(verdicts.values()),
+        "verdicts": verdicts,
+        "median_adjusted_pct": (round(float(np.median(adjusted)), 3)
+                                if adjusted else None),
+        "cadence": "hourly",
+    }
+
+
+def _schedule_stats(engine) -> dict:
+    """How the day's dispatches land, which is not how they arrive.
+
+    Peak-hour demand is what tells an operator whether the trigger is
+    producing a queue a fleet can actually serve. Priority ordering is only an
+    ordering: this run has no crew capacity, so nothing is deferred, and the
+    number to read is the pile-up.
+    """
+    plan = dispatch_plan(engine.actions)
+    per_hour: dict[pd.Timestamp, int] = {}
+    for action in engine.actions:
+        slot = action.dispatched_at.floor("h")
+        per_hour[slot] = per_hour.get(slot, 0) + 1
+    busiest = max(per_hour.values(), default=0)
+    return {
+        "hours_with_demand": plan["hours_with_demand"],
+        "peak_hour_demand": busiest,
+        "peak_hour": (str(max(per_hour, key=per_hour.get)) if per_hour else None),
+        "mean_per_active_hour": (round(len(engine.actions) / len(per_hour), 2)
+                                 if per_hour else 0.0),
+        "dispatches_sharing_an_hour": int(sum(v - 1 for v in per_hour.values()
+                                              if v > 1)),
+    }
+
+
 def run_response(products: Mapping[str, NodeProduct], threshold: float,
                  per_kind: int = 12) -> tuple[dict, list[dict]]:
     """Drive the engine over every node; return the summary plus a sample.
@@ -506,7 +572,10 @@ def run_response(products: Mapping[str, NodeProduct], threshold: float,
             if len(bucket) < per_kind:
                 bucket.append(record)
     sample = [r for key in sorted(kept) for r in kept[key]]
-    return engine.summary(), _spread(sample, 400)
+    summary = engine.summary()
+    summary["schedule"] = _schedule_stats(engine)
+    summary["effects"] = _effect_audit(engine, products)
+    return summary, _spread(sample, 400)
 
 
 def run(site_name: str = "rajkot", past_days: int = 92,

@@ -33,6 +33,26 @@ from ..errors import ConfigError
 
 _ACTION_IDS = itertools.count(1)
 
+#: The gate chain, in evaluation order. The number is what the suppression
+#: ledger records, so a run can be audited by gate without matching prose:
+#: "how many triggers did the uncertainty gate cost" becomes a groupby.
+GATE_CHAIN: tuple[tuple[int, str, str], ...] = (
+    (1, "source", "source identified with enough posterior to act on"),
+    (2, "persistence", "the breach survives the persistence window"),
+    (3, "uncertainty", "the calibrated interval excludes the threshold"),
+    (4, "dwell", "the lever's re-dose interval has elapsed"),
+    (5, "hysteresis", "the zone is armed"),
+)
+
+#: Which gate each refusal belongs to. A gate is one place in the chain, and
+#: several reasons can share one (the four ways a source gate can say no are
+#: the same gate saying no for different reasons).
+_GATE_OF: dict[str, int] = {
+    "unknown_source": 1, "low_posterior": 1, "refused_by_evidence": 1,
+    "no_lever": 1, "persistence": 2, "uncertainty": 3, "dwell": 4,
+    "not_armed": 5,
+}
+
 
 @dataclasses.dataclass(frozen=True)
 class Observation:
@@ -82,6 +102,12 @@ class Action:
     threshold: float
     evidence: Mapping[str, object]
     requires_signoff: bool
+    #: Expected concentration shaved per pass, in ug/m3: how far the trigger
+    #: clears the threshold, times the lever's published effect, times how much
+    #: the posterior is worth. The queue is ordered on this rather than on
+    #: arrival, because two breaches in the same hour are not equally worth a
+    #: truck.
+    priority: float = 0.0
 
     def as_dict(self) -> dict[str, object]:
         return dataclasses.asdict(
@@ -96,10 +122,19 @@ class Suppressed:
     at: pd.Timestamp
     reason: str
     detail: str
+    #: Which gate in the ordered chain refused, 1..5. The reason string
+    #: already said why in prose; this is what makes the ledger groupable, so
+    #: the report can show what each gate cost without a string match.
+    gate: int = 0
+    #: When the refusing gate could next change its answer - the dwell expiry,
+    #: or the next window. None where nothing scheduled will change it, because
+    #: an operator needs to know which of these to come back to.
+    retry_at: pd.Timestamp | None = None
 
     def as_dict(self) -> dict[str, object]:
         return {"node": self.node, "at": str(self.at), "reason": self.reason,
-                "detail": self.detail}
+                "detail": self.detail, "gate": self.gate,
+                "retry_at": str(self.retry_at) if self.retry_at is not None else None}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -114,10 +149,73 @@ class EffectResult:
     verdict: str
     n_before: int
     n_after: int
+    #: Reduction measured on an untreated node over the same window. The
+    #: before/after difference alone cannot separate a lever from the weather:
+    #: a sea breeze that clears the whole grid looks exactly like a successful
+    #: dispatch. Subtracting the control's change is the smallest correction
+    #: that removes the common mode.
+    control_pct: float | None = None
+
+    @property
+    def adjusted_pct(self) -> float | None:
+        """Reduction net of what happened anyway, when a control was given."""
+        if self.control_pct is None or not math.isfinite(self.reduction_pct):
+            return None
+        return self.reduction_pct - self.control_pct
 
     def as_dict(self) -> dict[str, object]:
         return {k: (round(v, 2) if isinstance(v, float) else v)
                 for k, v in self.__dict__.items()}
+
+
+@dataclasses.dataclass
+class DosingController:
+    """Per-lever re-dose interval, scaled by what the lever actually did.
+
+    Published half-lives are measured somewhere else, on someone else's road,
+    in someone else's weather. The controller starts at the published interval
+    and moves it within 0.5x-2x of that as dispatches are measured: a reduction
+    well short of the literature means the surface is shedding the suppressant
+    faster than advertised, so the next dose comes sooner.
+
+    Bounded on purpose. An unbounded controller chasing one windy afternoon
+    would halve the interval until the fleet is parked, and a lever dosed more
+    often than its measured decay allows is a lever dosed on noise.
+    """
+
+    MIN_SCALE = 0.5
+    MAX_SCALE = 2.0
+    STEP = 0.25
+
+    scales: dict[str, float] = dataclasses.field(default_factory=dict)
+
+    def scale(self, lever_key: str) -> float:
+        return self.scales.get(lever_key, 1.0)
+
+    def observe(self, lever: Lever, measured_pct: float | None) -> float:
+        """Move the interval one step on one measurement, and return the scale.
+
+        Between half and all of the published effect the interval is left
+        alone: that band is measurement noise around the claim, and stepping on
+        it would turn run-to-run variation into a schedule that oscillates.
+        """
+        current = self.scale(lever.key)
+        if (lever.effect_pct is None or measured_pct is None
+                or not math.isfinite(measured_pct)):
+            return current
+        if measured_pct < 0.5 * lever.effect_pct:
+            current -= self.STEP
+        elif measured_pct >= lever.effect_pct:
+            current += self.STEP
+        else:
+            return current
+        current = min(self.MAX_SCALE, max(self.MIN_SCALE, current))
+        self.scales[lever.key] = current
+        return current
+
+    def interval_min(self, lever: Lever, safety: float = 0.75) -> float | None:
+        base = lever.dose_interval_min(safety)
+        return None if base is None else base * self.scale(lever.key)
 
 
 @dataclasses.dataclass
@@ -141,6 +239,7 @@ class ResponseEngine:
         self._zones: dict[str, _ZoneState] = {}
         self.actions: list[Action] = []
         self.suppressed: list[Suppressed] = []
+        self.dosing = DosingController()
 
     # -- helpers -----------------------------------------------------------
     def _zone(self, node: str) -> _ZoneState:
@@ -219,14 +318,17 @@ class ResponseEngine:
 
         if not self._passes_persistence(state):
             n = min(self.gates.persistence_of, self.window_capacity)
-            return self._log(obs, "persistence",
-                             f"{sum(list(state.windows)[-n:])} of last {n} "
-                             f"windows breached, need {self.gates.persistence_windows}")
+            return self._log(
+                obs, "persistence",
+                f"{sum(list(state.windows)[-n:])} of last {n} windows breached, "
+                f"need {self.gates.persistence_windows}",
+                retry_at=self._next_window(obs.at))
 
         if not self._uncertainty_clears(obs):
             return self._log(obs, "uncertainty",
                              f"interval low {obs.interval_low:.1f} does not "
-                             f"exclude threshold {obs.threshold:.1f}")
+                             f"exclude threshold {obs.threshold:.1f}",
+                             retry_at=self._next_window(obs.at))
 
         lever = self._lever_for(source, obs.value)
         if lever is None:
@@ -234,18 +336,29 @@ class ResponseEngine:
 
         if self._within_dwell(state, lever, obs.at):
             last = state.last_dispatch[lever.key]
+            due = last + pd.Timedelta(self.gates.min_dwell_minutes, unit="min")
             return self._log(obs, "dwell",
                              f"{lever.key} dispatched {last}, dwell is "
-                             f"{self.gates.min_dwell_minutes:.0f} min")
+                             f"{self.gates.min_dwell_minutes:.0f} min",
+                             retry_at=due)
 
-        recheck = ((obs.at + pd.Timedelta(lever.dose_interval_min(), unit="min"))
-                   if lever.dose_interval_min() is not None else None)
+        interval_min = self.dosing.interval_min(lever)
+        recheck = (obs.at + pd.Timedelta(interval_min, unit="min")
+                   if interval_min is not None else None)
+        # How far this trigger clears the action level, times what the lever is
+        # worth, times how much the posterior is worth. A dispatch from a 0.9
+        # posterior on a lever with a measured 24% effect, 8 ug/m3 over the
+        # line, is worth more than one from a 0.6 posterior on an advisory.
+        excess = max(0.0, obs.value - obs.threshold) / max(obs.threshold, 1e-9)
+        priority = round(excess * (lever.effect_pct or 0.0) / 100.0
+                         * obs.confidence, 4)
         action = Action(
             id=f"A{next(_ACTION_IDS):05d}", node=obs.node, source=source,
             lever=lever.key, owner=lever.owner, dispatched_at=obs.at,
             recheck_at=recheck, trigger_value=float(obs.value),
             trigger_sigma=float(obs.sigma), threshold=float(obs.threshold),
             requires_signoff=self.gates.require_human_signoff,
+            priority=priority,
             evidence={
                 "posterior": {k: round(v, 4) for k, v in obs.posterior.items()},
                 "coarse_ratio": round(obs.coarse_ratio, 3),
@@ -266,14 +379,36 @@ class ResponseEngine:
         self.actions.append(action)
         return action
 
-    def _log(self, obs: Observation, reason: str, detail: str) -> Suppressed:
-        item = Suppressed(node=obs.node, at=obs.at, reason=reason, detail=detail)
+    def _log(self, obs: Observation, reason: str, detail: str,
+             retry_at: pd.Timestamp | None = None) -> Suppressed:
+        item = Suppressed(node=obs.node, at=obs.at, reason=reason, detail=detail,
+                          gate=_GATE_OF.get(reason, 0), retry_at=retry_at)
         self.suppressed.append(item)
         return item
 
+    @staticmethod
+    def _next_window(at: pd.Timestamp) -> pd.Timestamp:
+        """The next observation that could change a per-window gate's answer.
+
+        The cadence lives with the caller, so an hour is the honest guess and
+        a note rather than a promise - the ledger says "come back then", not
+        "it will pass then".
+        """
+        return at + pd.Timedelta(hours=1)
+
+    def register_effect(self, action: Action, result: EffectResult) -> float:
+        """Feed one measured effect back into the lever's re-dose interval."""
+        lever = self.table.levers.get(action.lever)
+        if lever is None:
+            return 1.0
+        measured = (result.adjusted_pct if result.adjusted_pct is not None
+                    else result.reduction_pct)
+        return self.dosing.observe(lever, measured)
+
     # -- closing the loop --------------------------------------------------
     def measure_effect(self, action: Action, series: pd.Series,
-                       min_samples: int = 3) -> EffectResult:
+                       min_samples: int = 3,
+                       control: pd.Series | None = None) -> EffectResult:
         """Did the dispatch do what the literature said it would?
 
         The window is the lever's own half-life, not an arbitrary hour count:
@@ -303,31 +438,62 @@ class ResponseEngine:
 
         b, a = float(before.mean()), float(after.mean())
         reduction = 100.0 * (1 - a / b) if b > 0 else 0.0
+
+        # The control is the same two windows on a node that got no dispatch.
+        # Without it, a sea breeze that clears the whole grid is scored as a
+        # successful intervention, and the verdict below would be measuring the
+        # weather.
+        control_pct: float | None = None
+        if control is not None:
+            cb = control[(control.index >= action.dispatched_at - 3 * window)
+                         & (control.index < action.dispatched_at)].dropna()
+            ca = control[(control.index > action.dispatched_at)
+                         & (control.index <= action.dispatched_at + window)].dropna()
+            if (len(cb) >= min_samples and len(ca) >= min_samples
+                    and float(cb.mean()) > 0):
+                control_pct = 100.0 * (1 - float(ca.mean()) / float(cb.mean()))
+
+        net = reduction if control_pct is None else reduction - control_pct
         if lever.effect_pct is None:
             verdict = "no_published_effect_size"
-        elif reduction >= 0.5 * lever.effect_pct:
+        elif net >= 0.5 * lever.effect_pct:
             verdict = "consistent_with_literature"
-        elif reduction > 0:
+        elif net > 0:
             verdict = "weaker_than_published"
         else:
             verdict = "no_effect_measured"
         return EffectResult(action.id, action.node, action.lever, b, a,
                             reduction, lever.effect_pct, verdict,
-                            len(before), len(after))
+                            len(before), len(after), control_pct)
 
     # -- reporting ---------------------------------------------------------
     def summary(self) -> dict[str, object]:
         reasons: dict[str, int] = {}
         for s in self.suppressed:
             reasons[s.reason] = reasons.get(s.reason, 0) + 1
+        by_gate: dict[str, int] = {}
+        labels = {n: name for n, name, _ in GATE_CHAIN}
+        for s in self.suppressed:
+            name = labels.get(s.gate, "ungated")
+            by_gate[name] = by_gate.get(name, 0) + 1
         by_lever: dict[str, int] = {}
         for a in self.actions:
             by_lever[a.lever] = by_lever.get(a.lever, 0) + 1
+        retry = [s for s in self.suppressed if s.retry_at is not None]
         return {
             "actions": len(self.actions),
             "suppressed": len(self.suppressed),
             "suppressed_by_reason": reasons,
+            "suppressed_by_gate": by_gate,
+            #: Suppressions that a clock will change, as opposed to ones that
+            #: only new information can. The difference is what tells a
+            #: dispatcher which rows of the ledger to come back to.
+            "reschedulable": len(retry),
             "actions_by_lever": by_lever,
+            "max_priority": round(max((a.priority for a in self.actions),
+                                      default=0.0), 4),
+            "dosing_scales": {k: round(v, 3) for k, v in
+                              self.dosing.scales.items()},
             "zones_tracked": len(self._zones),
             "signoff_required": self.gates.require_human_signoff,
         }
@@ -336,6 +502,58 @@ class ResponseEngine:
         self._zones.clear()
         self.actions.clear()
         self.suppressed.clear()
+
+
+def rank_actions(actions: Iterable[Action]) -> list[Action]:
+    """Order dispatches by expected effect, not by arrival.
+
+    Two breaches in the same hour are not equally worth a truck: one may be 4
+    ug/m3 over the line with a 0.7 posterior on an advisory lever, the other 20
+    over with a 0.9 posterior on a sweeper. The engine appends in time order,
+    which is what the audit trail needs; this is the order a human should work.
+    """
+    return sorted(actions, key=lambda a: (-a.priority, a.dispatched_at, a.node))
+
+
+def dispatch_plan(actions: Sequence[Action], capacity_per_hour: int | None = None
+                  ) -> dict[str, object]:
+    """The queue, and what a fleet constraint would defer.
+
+    With no capacity this is only an ordering. With a capacity it becomes a
+    schedule: within each hour the highest-priority dispatches go, the rest are
+    deferred to the next hour with the reason recorded. The deferral is honest
+    about its own limitation - it does not re-evaluate the deferred trigger, so
+    a breach that clears before the next hour is dispatched on stale evidence,
+    which is why the row is marked rather than simply dropped.
+    """
+    if capacity_per_hour is not None and capacity_per_hour < 1:
+        raise ConfigError("capacity_per_hour must be at least 1")
+    queue = rank_actions(actions)
+    served: list[dict[str, object]] = []
+    deferred: list[dict[str, object]] = []
+    per_hour: dict[pd.Timestamp, int] = {}
+    for action in queue:
+        slot = action.dispatched_at.floor("h")
+        used = per_hour.get(slot, 0)
+        if capacity_per_hour is not None and used >= capacity_per_hour:
+            deferred.append({
+                "id": action.id, "node": action.node, "lever": action.lever,
+                "priority": action.priority,
+                "reason": "crew_capacity",
+                "retry_at": str(slot + pd.Timedelta(hours=1)),
+            })
+            continue
+        per_hour[slot] = used + 1
+        served.append({"id": action.id, "node": action.node,
+                       "lever": action.lever, "priority": action.priority})
+    return {
+        "queue": served,
+        "deferred": deferred,
+        "hours_with_demand": len(per_hour),
+        "peak_hour_demand": max(per_hour.values(), default=0),
+        "capacity_per_hour": capacity_per_hour,
+        "deferred_count": len(deferred),
+    }
 
 
 def dose_schedule(lever: Lever, start: pd.Timestamp, hours: int = 24
@@ -419,14 +637,26 @@ def roster_vs_triggered(breach_hours: Sequence[int], passes_per_day: int,
     # Greedy placement: each pass goes where it adds the most still-uncovered
     # breach hours. That is what a dispatcher with a live grid actually does,
     # and it is deliberately not optimal - an optimum would overstate the case.
+    #
+    # Two things stop the far arm being over- or under-credited. A pass cannot
+    # be placed on an hour that already has one - it is the same truck at the
+    # same place, and it used to be counted twice, which understated the trigger
+    # exactly on long-lived levers. And when no remaining candidate adds
+    # coverage the lever is saturated: the roster is still being handed its full
+    # allocation while the trigger needs nothing further, so the pass count is
+    # reported rather than the coverage alone.
     chosen: list[int] = []
     covered: set[int] = set()
     for _ in range(passes_per_day):
-        best, best_gain = breaches[0], -1
+        best, best_gain = None, 0
         for candidate in breaches:
+            if candidate in chosen:
+                continue
             gain = len((footprint(candidate) & set(breaches)) - covered)
-            if gain > best_gain:
+            if best is None or gain > best_gain:
                 best, best_gain = candidate, gain
+        if best is None or best_gain == 0:
+            break
         chosen.append(best)
         covered |= footprint(best)
 
@@ -436,4 +666,8 @@ def roster_vs_triggered(breach_hours: Sequence[int], passes_per_day: int,
         "breach_hours_per_day": float(len(breaches)),
         "gain": round(coverage(chosen) - coverage(roster), 4),
         "passes_per_day": float(passes_per_day),
+        "passes_used": float(len(chosen)),
+        # True when the lever's own window covers the day in fewer passes than
+        # the roster is given - the case where equal cost is not equal effort.
+        "saturated": len(chosen) < passes_per_day,
     }

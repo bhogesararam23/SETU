@@ -15,11 +15,14 @@ from setu.config import load_action_table
 from setu.errors import ConfigError
 from setu.respond import (
     Action,
+    DosingController,
     Observation,
     ResponseEngine,
     Suppressed,
     coverage_fraction,
+    dispatch_plan,
     dose_schedule,
+    rank_actions,
 )
 from setu.respond.engine import roster_vs_triggered
 
@@ -322,3 +325,154 @@ def test_reset_clears_state_for_a_fresh_run(engine):
     engine.reset()
     assert engine.summary()["actions"] == 0
     assert engine.summary()["zones_tracked"] == 0
+
+
+# -- the suppression ledger -------------------------------------------------
+def test_every_suppression_carries_the_gate_that_refused_it(engine):
+    """Grouping the ledger by gate, not by prose, is what makes it auditable."""
+    feed(engine, 6)
+    feed(engine, 3, start=6, posterior=SEC)
+    gates = {s.gate for s in engine.suppressed}
+    assert gates <= {n for n, _, _ in __import__(
+        "setu.respond.engine", fromlist=["GATE_CHAIN"]).GATE_CHAIN}
+    assert 0 not in gates, "a refusal outside the chain is a bug, not a gate"
+    s = engine.summary()
+    assert sum(s["suppressed_by_gate"].values()) == s["suppressed"]
+    assert s["suppressed_by_gate"]["persistence"] > 0
+
+
+def test_a_dwell_refusal_says_when_the_lever_can_go_again(engine):
+    feed(engine, 6)
+    dwell = [s for s in engine.suppressed if s.reason == "dwell"]
+    assert dwell, "expected the re-dose inside the dwell window to be refused"
+    last = engine.actions[0].dispatched_at
+    assert dwell[0].retry_at == last + pd.Timedelta(
+        engine.gates.min_dwell_minutes, unit="min")
+    # An hourly gate clears on its own; a dwell clears on a clock. Only the
+    # second kind belongs in a dispatcher's follow-up list.
+    assert engine.summary()["reschedulable"] >= len(dwell)
+
+
+# -- scheduling and prioritisation -----------------------------------------
+def test_the_queue_is_ordered_by_expected_effect_not_by_arrival(engine):
+    feed(engine, 5, node="a01", value=70.0)
+    feed(engine, 5, node="b01", value=110.0)
+    assert len(engine.actions) >= 2
+    ranked = rank_actions(engine.actions)
+    assert ranked[0].node == "b01", "the deeper breach must outrank the shallower"
+    assert ranked[0].priority > ranked[-1].priority
+
+
+def test_a_fleet_constraint_defers_by_priority_and_names_the_reason(engine):
+    for node in ("a01", "b01", "c01"):
+        feed(engine, 5, node=node, value=70.0 + 10 * int(node[1:3]))
+    plan = dispatch_plan(engine.actions, capacity_per_hour=1)
+    assert plan["deferred_count"] >= 1
+    assert plan["peak_hour_demand"] >= 1
+    deferred = {d["id"] for d in plan["deferred"]}
+    served = {r["id"] for r in plan["queue"]}
+    assert not deferred & served
+    assert all(d["reason"] == "crew_capacity" for d in plan["deferred"])
+    # Every deferral hands back a time, not just a refusal.
+    assert all(d["retry_at"] for d in plan["deferred"])
+    # The plan only reorders; it never invents or loses a dispatch.
+    assert len(served) + len(deferred) == len(engine.actions)
+
+
+def test_without_a_capacity_the_plan_is_only_an_ordering(engine):
+    for node in ("a01", "b01"):
+        feed(engine, 5, node=node, value=90.0)
+    plan = dispatch_plan(engine.actions)
+    assert plan["deferred_count"] == 0
+    assert len(plan["queue"]) == len(engine.actions)
+
+
+# -- adaptive dosing --------------------------------------------------------
+def test_a_lever_that_underperforms_is_redosed_sooner(engine):
+    lever = engine.table.levers["vacuum_sweeping"]
+    assert lever.effect_pct and lever.half_life_min
+    base = engine.dosing.interval_min(lever)
+    assert base is not None
+    for _ in range(4):
+        engine.dosing.observe(lever, 0.2 * lever.effect_pct)
+    assert engine.dosing.scale(lever.key) == DosingController.MIN_SCALE
+    assert engine.dosing.interval_min(lever) == pytest.approx(base * 0.5)
+
+
+def test_a_lever_that_outperforms_is_redosed_later_but_not_freely(engine):
+    lever = engine.table.levers["vacuum_sweeping"]
+    base = engine.dosing.interval_min(lever)
+    for _ in range(20):
+        engine.dosing.observe(lever, 3.0 * lever.effect_pct)
+    # Bounded: a surfacing that held for one calm afternoon does not license a
+    # schedule twice as sparse as the published decay.
+    assert engine.dosing.scale(lever.key) == DosingController.MAX_SCALE
+    assert engine.dosing.interval_min(lever) == pytest.approx(base * 2.0)
+
+
+def test_an_effect_inside_the_noise_band_leaves_the_schedule_alone(engine):
+    lever = engine.table.levers["vacuum_sweeping"]
+    for _ in range(5):
+        engine.dosing.observe(lever, 0.7 * lever.effect_pct)
+    assert engine.dosing.scale(lever.key) == 1.0
+
+
+def test_a_dispatch_whose_recheck_reflects_the_adapted_interval(engine):
+    lever = engine.table.levers["vacuum_sweeping"]
+    for _ in range(4):
+        engine.dosing.observe(lever, 0.2 * lever.effect_pct)
+    action = next(v for v in feed(engine, 6) if isinstance(v, Action))
+    assert action.recheck_at is not None
+    elapsed = (action.recheck_at - action.dispatched_at).total_seconds() / 60.0
+    assert elapsed == pytest.approx(lever.half_life_min * 0.75 * 0.5)
+
+
+# -- measuring the effect ---------------------------------------------------
+def test_an_effect_is_measured_net_of_what_happened_untreated(engine):
+    """A sea breeze that clears the grid is not a successful dispatch."""
+    action = next(v for v in feed(engine, 6) if isinstance(v, Action))
+    treated = _effect_series(action, before=80.0, after=58.0)   # -27%
+    control = _effect_series(action, before=80.0, after=50.0)   # -37% anyway
+    result = engine.measure_effect(action, treated, control=control)
+
+    assert result.control_pct == pytest.approx(37.5, abs=3)
+    assert result.reduction_pct == pytest.approx(27.5, abs=3)
+    assert result.adjusted_pct == pytest.approx(
+        result.reduction_pct - result.control_pct)
+    # Raw, this looks consistent with the literature. Net of the control it is
+    # a reduction smaller than the one nobody intervened to cause.
+    assert result.verdict == "no_effect_measured"
+
+
+def test_without_a_control_the_raw_reduction_is_still_reported(engine):
+    action = next(v for v in feed(engine, 6) if isinstance(v, Action))
+    result = engine.measure_effect(action, _effect_series(action))
+    assert result.control_pct is None
+    assert result.adjusted_pct is None
+
+
+def test_a_measured_effect_moves_the_lever_schedule(engine):
+    lever = engine.table.levers["vacuum_sweeping"]
+    action = next(v for v in feed(engine, 6) if isinstance(v, Action))
+    weaker = _effect_series(action, before=80.0, after=78.0)
+    result = engine.measure_effect(action, weaker)
+    scale = engine.register_effect(action, result)
+    assert scale < 1.0
+    assert engine.summary()["dosing_scales"][lever.key] == round(scale, 3)
+
+
+# -- equal cost, on a lever that lasts most of a day ------------------------
+def test_a_long_lived_lever_is_not_given_passes_it_does_not_need():
+    """The suppressant row must say saturation, not a fake equal-cost tie."""
+    out = roster_vs_triggered([8, 9, 10], passes_per_day=2, half_life_min=1200)
+    assert out["saturated"] is True
+    assert out["passes_used"] == 1
+    assert out["roster_coverage"] == 1.0 and out["triggered_coverage"] == 1.0
+    assert out["gain"] == 0.0
+
+
+def test_a_short_lever_uses_every_pass_it_is_given():
+    out = roster_vs_triggered([7, 8, 9, 17, 18, 19], passes_per_day=2,
+                              half_life_min=62)
+    assert out["passes_used"] == 2
+    assert out["saturated"] is False
