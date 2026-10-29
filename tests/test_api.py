@@ -139,9 +139,15 @@ def test_console_shows_run_wide_means_not_one_nodes_luck(client, committed):
     # the assertion is that the console and the report agree, not that they
     # agree with a constant frozen at some earlier run.
     md = (RESULTS_DIR / "VALIDATION.md").read_text(encoding="utf-8")
-    headline = re.search(r"\| PM2\.5 MAE \| [^|]+ \| \*\*([0-9.]+)", md)
-    if headline is None:
-        pytest.skip("no MAE headline in the committed report")
+    headline = re.search(r"\|\s*MAE ug/m3\s*\|[^|]*\|\s*([0-9.]+)\s*\|", md)
+    # No skip here. This test skipped itself when the pattern stopped matching,
+    # and the pattern had stopped matching because the calibration table was
+    # reformatted - so the guard tying the console to the report was silently
+    # switched off and reported as a skip. A report missing the row this test
+    # claims to read is a failure of the tie, not an environment problem.
+    assert headline is not None, (
+        "no MAE row in results/VALIDATION.md; the console/report tie cannot be "
+        "checked and the report shape has moved without this test")
     assert abs(body["calibration"]["mean"]["after_mae"]
                - float(headline.group(1))) < 0.01, \
         "console drifted from the headline in results/VALIDATION.md"
