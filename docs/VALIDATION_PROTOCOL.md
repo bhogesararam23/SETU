@@ -95,8 +95,8 @@ it, the baseline it is scored against, and the pass rule agreed before running.
 | **Test** | Both arms get the same passes per day. Roster spaces them from a 05:00 shift start; trigger places them on hours the grid actually breaches. Coverage compared per lever using its measured half-life. |
 | **Baselines** | The roster, at equal cost. Scored on genuinely episodic breach hours (construction, open burning) **and** on the continuous road-dust case. |
 | **Pass rule** | Positive gain on short-lived levers, ~zero on a 20-hour suppressant. A positive gain on the suppressant would mean the comparison is rigged. |
-| **Result** | +0.12 and +0.18 on the 62-min and 150-min levers, **0.00** on the ~20 h suppressant, **+0.00** on chronic road dust. Over the full grid: 14,224 dispatches and 56,656 suppressions, every suppression carrying one of six gate reasons. |
-| **Effect measurement** | `measure_effect` refuses to score an intervention without native-cadence data. Hourly input is unscorable and the test asserts that: an effect window shorter than the reporting cadence cannot be measured, and pretending otherwise is how half-lives get invented. |
+| **Result** | +0.12 and +0.18 on the 62-min and 150-min levers, **0.00** on the ~20 h suppressant, **+0.00** on chronic road dust. The suppressant saturates - it needs 1 pass of the 2 it is given, so that row is a saturated lever and not a draw. Over the full grid: 8,047 dispatches and 62,833 suppressions, each carrying the gate from the ordered chain that refused it (source 25,717, hysteresis 26,586, dwell 5,502, persistence 3,029, uncertainty 1,999) and, where a clock will clear it, the time it could next pass. |
+| **Effect measurement** | `measure_effect` refuses to score an intervention without native-cadence data, and takes an untreated-node control so a sea breeze that clears the grid is not scored as a successful sweep. Hourly input is unscorable and the test asserts that. On the twin, 40 sampled dispatches return `insufficient_data` 40 times, which is the correct null: the twin simulates no intervention, and a positive effect here would mean the framework was reading weather. |
 
 ### Drift
 

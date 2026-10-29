@@ -110,12 +110,22 @@ This document tracks the systematic improvement of SETU from its current state (
 **Goal:** More effective and measurable interventions
 
 #### Tasks:
-- [ ] Fix equal-cost comparison for long-lived levers
-- [ ] Improve action scheduling and prioritization
-- [ ] Add intervention effect measurement framework
-- [ ] Implement adaptive dosing based on measured decay
-- [ ] Add response validation and testing
-- [ ] Improve suppression reason tracking
+- [x] Fix equal-cost comparison for long-lived levers - a pass is no longer
+      awarded at an hour that already has one, and `passes_used`/`saturated`
+      make the ~20 h suppressant read as a saturated lever rather than a tie
+- [x] Improve action scheduling and prioritization - priority is excess over the
+      action level times the lever's effect times the posterior; `dispatch_plan`
+      defers the lowest-priority rows under a crew capacity with a reason and a
+      retry hour
+- [x] Add intervention effect measurement framework - before/after with an
+      untreated-node control, refused when the cadence cannot resolve the
+      lever's window, null on a twin with no intervention dynamics
+- [x] Implement adaptive dosing based on measured decay - `DosingController`
+      moves each lever's interval within 0.5x-2x of its published decay
+- [x] Add response validation and testing - including the tests that assert no
+      gain where none should exist (chronic dust, saturated suppressant)
+- [x] Improve suppression reason tracking - gate number from the ordered chain,
+      plus the time the gate could next change its answer
 
 ### Milestone 7: Data Pipeline & I/O Improvements
 **Goal:** More robust and maintainable data pipeline
