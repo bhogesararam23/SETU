@@ -26,7 +26,13 @@ from .attribute import (
 )
 from .calibrate import CalibrationModel, CusumMonitor, transfer_calibrate
 from .config import Site, load_action_table, load_signatures, load_site
-from .forecast import HORIZONS, GraphForecaster, design_matrix, evaluate_forecast
+from .forecast import (
+    HORIZONS,
+    GraphForecaster,
+    design_matrix,
+    evaluate_forecast,
+    walk_forward_slices,
+)
 from .io import openmeteo as om
 from .io.cache import HttpCache
 from .metrics import score
@@ -299,7 +305,25 @@ def attribute_all(products: Mapping[str, NodeProduct],
 
 def forecast_all(products: Mapping[str, NodeProduct],
                  nodes: Sequence[grid.Node]) -> list[dict]:
+    """Walk-forward forecast evaluation: refit per fold, score every fold.
+
+    Each fold trains on everything before its score slice and calibrates its
+    band on the slice just before that, so every scored hour is an hour the
+    model could not have seen. The pooled row is the deployment estimate; the
+    per-fold rows attached to it are the decay curve - skill as the score
+    slice moves further from the training data. A single chronological split
+    answered "does it survive one regime change" with no at every horizon,
+    which is a true statement about a never-refitted model and a false one
+    about the deployed system, which refits as data arrives.
+
+    A node or fold too thin to fit is skipped and counted, never collapsed
+    into the pooled score silently.
+    """
     frames: dict[int, list[pd.DataFrame]] = {h: [] for h in HORIZONS}
+    diagnostics: dict[str, int] = {
+        "nodes_total": len(products), "nodes_scored": 0, "nodes_skipped": 0,
+        "folds_scored": 0, "folds_skipped": 0, "rows_missing_met": 0,
+    }
     for nid, p in products.items():
         one = p.calibrated.rename(columns={"value": "pm25"})
         joined = p.truth[["rh", "wind_speed_ms", "wind_dir_deg", "temp_c"]].copy()
@@ -307,22 +331,63 @@ def forecast_all(products: Mapping[str, NodeProduct],
         base = pd.concat([one, joined], axis=1)
         X = design_matrix(base, "pm25")
         targets = {h: base["pm25"].shift(-h) for h in HORIZONS}
+        diagnostics["rows_missing_met"] += int((~X.notna().all(axis=1)).sum())
         try:
-            model = GraphForecaster(horizons=HORIZONS).fit(X, targets)
-            model.fit_seasonal_baseline(base["pm25"])
+            folds = walk_forward_slices(len(X), folds=GraphForecaster.FOLDS)
         except Exception:  # noqa: BLE001 - one thin node must not kill the run
+            diagnostics["nodes_skipped"] += 1
             continue
-        window = X.iloc[24:-max(HORIZONS)]
-        for h in HORIZONS:
-            frames[h].append(pd.DataFrame({
-                "actual": targets[h].reindex(window.index),
-                "predicted": model.predict(window, h),
-                "persistence": base["pm25"].reindex(window.index),
-                "seasonal": model.seasonal_predict(window.index),
-            }))
-    return [skill.as_dict()
-            for h, v in frames.items() if v
-            for skill in evaluate_forecast({h: pd.concat(v)})]
+        node_scored = False
+        for fi, (train, calib, score) in enumerate(folds):
+            try:
+                model = GraphForecaster(horizons=HORIZONS)
+                model.fit(X.iloc[train], {h: s.iloc[train]
+                                          for h, s in targets.items()})
+                model.calibrate_intervals(X.iloc[calib],
+                                          {h: s.iloc[calib]
+                                           for h, s in targets.items()})
+                model.fit_seasonal_baseline(base["pm25"].iloc[train])
+            except Exception:  # noqa: BLE001 - a bad fold is a counted fold
+                diagnostics["folds_skipped"] += 1
+                continue
+            diagnostics["folds_scored"] += 1
+            node_scored = True
+            window = X.iloc[score]
+            for h in HORIZONS:
+                lo, hi = model.predict_interval(window, h)
+                frame = pd.DataFrame({
+                    "actual": targets[h].reindex(window.index),
+                    "predicted": model.predict(window, h),
+                    "persistence": base["pm25"].reindex(window.index),
+                    "seasonal": model.seasonal_predict(window.index),
+                    "interval_lo": lo,
+                    "interval_hi": hi,
+                    "fold": fi,
+                })
+                frames[h].append(frame)
+        if node_scored:
+            diagnostics["nodes_scored"] += 1
+    rows: list[dict] = []
+    for h, v in frames.items():
+        if not v:
+            continue
+        combined = pd.concat(v)
+        for skill in evaluate_forecast({h: combined}):
+            row = skill.as_dict()
+            # Per-fold skill is the decay curve: how far the score slice sits
+            # from the training data, against how much skill survived.
+            fold_rows = []
+            for fi in sorted(combined["fold"].unique()):
+                sub = combined[combined["fold"] == fi]
+                for one_fold in evaluate_forecast({h: sub}):
+                    fold_row = one_fold.as_dict()
+                    fold_row.pop("diagnostics", None)
+                    fold_row["fold"] = int(fi)
+                    fold_rows.append(fold_row)
+            row["folds"] = fold_rows
+            row["diagnostics"] = diagnostics
+            rows.append(row)
+    return rows
 
 
 def _spread(rows: list[dict], limit: int) -> list[dict]:

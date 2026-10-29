@@ -17,6 +17,7 @@ from setu.forecast import (
     hourly_adjacency,
     lag_frame,
     upwind_mean,
+    walk_forward_slices,
 )
 from setu.io import openmeteo as om
 from setu.io.cache import HttpCache
@@ -164,3 +165,174 @@ def test_hourly_adjacency_is_cached_per_hour(node_series):
     graphs = hourly_adjacency(nodes[:4], wind)
     assert len(graphs) == 3
     assert graphs[wind.index[0]] != graphs[wind.index[1]]
+
+
+def test_walk_forward_slices_are_ordered_disjoint_and_expanding():
+    """The scored hours must be hours the model never saw.
+
+    Walk-forward answers the question a deployment asks: as data arrives and
+    the model refits, what is it worth on the next slice? Each fold's score
+    slice must lie entirely after its calibration slice, which lies after its
+    training slice, and the training slice always starts at row 0 - that is
+    what makes it expanding rather than rolling.
+    """
+    folds = walk_forward_slices(2000, folds=3)
+    assert len(folds) == 3
+    for train, calib, score in folds:
+        assert train.start == 0, "training slice must expand from the window start"
+        # Half-open slices: sharing a boundary is disjoint, overlapping is not.
+        assert train.stop <= calib.start, "fit and calibration overlap"
+        assert calib.stop <= score.start, "calibration and score overlap"
+        assert score.stop is not None
+    # Score slices march forward in time and never repeat an hour.
+    scores = [(f[2].start, f[2].stop) for f in folds]
+    assert scores == sorted(scores), "score slices do not advance"
+    assert len({r for s in scores for r in range(*s)}) == sum(
+        stop - start for start, stop in scores), "score slices overlap"
+
+
+def test_a_window_too_thin_to_split_says_so():
+    with pytest.raises(CalibrationError, match="no walk-forward fold"):
+        walk_forward_slices(300, folds=3)
+
+
+def test_walk_forward_drops_folds_that_could_not_be_fitted():
+    """The first fold of a thin window has no history to train on. It is
+    dropped, not scored on a model that barely fit - the optimistic number
+    lives exactly there."""
+    folds = walk_forward_slices(1000, folds=3, min_train=450)
+    assert folds, "a 1000-row window should yield at least one fold"
+    for train, calib, score in folds:
+        assert train.stop - train.start >= 450, "training floor not honoured"
+        assert score.start >= train.stop
+
+
+def test_the_nearest_fold_survives_the_training_floor():
+    """Regression: at the run's real window (1772 rows, 3 folds) the old
+    generator placed the first score slice at n/4 = 443 rows, under the 450
+    training floor, so the guard dropped the fold nearest the training data -
+    the one a deployment sees first - and every node silently lost it. The
+    score region now starts where the floor permits, and all three folds
+    come back for every window the fixtures actually use.
+    """
+    for n in (1772, 1440, 1080, 720):
+        folds = walk_forward_slices(n, folds=3)
+        assert len(folds) == 3, f"n={n} yielded {len(folds)} folds"
+        # Nearest fold first: its score slice begins right after the floor.
+        first = folds[0]
+        assert first[0].stop >= 450
+        assert first[2].start >= first[0].stop
+
+
+def test_intervals_cover_at_the_nominal_rate(node_series):
+    """A band that covers nothing is not uncertainty, and a band that covers
+    everything is not information. The nominal rate is 80%, and measured
+    coverage on held-out hours has to land near it - wide tolerance because
+    this is one window of one node set, but a band at 40% or 99.5% fails."""
+    _, _, series = node_series
+    one = next(iter(series.values()))
+    X = design_matrix(one, "pm25")
+    targets = {h: one["pm25"].shift(-h) for h in HORIZONS}
+    train, calib, score = walk_forward_slices(len(X), folds=3)[-1]
+    model = GraphForecaster(horizons=HORIZONS)
+    model.fit(X.iloc[train], {h: s.iloc[train] for h, s in targets.items()})
+    model.calibrate_intervals(X.iloc[calib],
+                              {h: s.iloc[calib] for h, s in targets.items()})
+    window = X.iloc[score]
+    for h in HORIZONS:
+        lo, hi = model.predict_interval(window, h)
+        actual = targets[h].reindex(window.index)
+        scored = actual.notna()
+        coverage = ((actual[scored] >= lo[scored])
+                    & (actual[scored] <= hi[scored])).mean()
+        assert 0.55 <= coverage <= 0.98, f"{h}h band covers {coverage:.3f}"
+        assert (lo <= hi).all(), "inverted band"
+        assert (lo >= 0).all(), "negative lower bound on a concentration"
+
+
+def test_a_wider_horizon_gets_a_wider_band(node_series):
+    """Six hours out is less certain than one hour out. A band that does not
+    grow with horizon is measuring the model, not the future."""
+    _, _, series = node_series
+    one = next(iter(series.values()))
+    X = design_matrix(one, "pm25")
+    targets = {h: one["pm25"].shift(-h) for h in HORIZONS}
+    train, calib, _ = walk_forward_slices(len(X), folds=3)[-1]
+    model = GraphForecaster(horizons=HORIZONS)
+    model.fit(X.iloc[train], {h: s.iloc[train] for h, s in targets.items()})
+    model.calibrate_intervals(X.iloc[calib],
+                              {h: s.iloc[calib] for h, s in targets.items()})
+    assert model._quantiles[1] < model._quantiles[6]
+
+
+def test_intervals_must_be_calibrated_before_they_are_predicted(node_series):
+    _, _, series = node_series
+    one = next(iter(series.values()))
+    X = design_matrix(one, "pm25")
+    y = {1: one["pm25"].shift(-1)}
+    model = GraphForecaster(horizons=(1,)).fit(X.iloc[:800], {1: y[1].iloc[:800]})
+    with pytest.raises(CalibrationError, match="calibrate"):
+        model.predict_interval(X, 1)
+
+
+def test_evaluating_without_intervals_still_scores(node_series):
+    """The interval columns are optional: a frame without them scores skill
+    and reports no coverage, rather than failing or inventing a band."""
+    idx = pd.date_range("2026-09-01", periods=80, freq="h")
+    base = np.arange(80.0)
+    frame = pd.DataFrame({"actual": base, "predicted": base + 0.5,
+                          "persistence": base, "seasonal": base + 1.0}, index=idx)
+    rows = evaluate_forecast({1: frame})
+    assert len(rows) == 1
+    assert rows[0].interval_coverage is None
+    assert rows[0].interval_width is None
+
+
+def test_forecast_all_scores_walk_forward_and_carries_the_decay_curve(node_series):
+    """The payload contract: pooled row per horizon, a per-fold decay curve
+    under it, and diagnostics that count what was skipped. The report reads
+    exactly these keys, and a regression here shows up as a silently missing
+    section rather than an error."""
+    from setu.pipeline import NodeProduct, forecast_all
+
+    site, nodes, series = node_series
+    products = {
+        # The real pipeline's calibrated frame is one `value` column; truth
+        # carries the meteorology. Faking both from one frame would duplicate
+        # columns the design matrix reads by name.
+        nid: NodeProduct(
+            node=nid, truth=one, raw=one,
+            calibrated=pd.DataFrame({"value": one["pm25"]}, index=one.index),
+            attributions=[], drift_alarms=0, calibration={})
+        for nid, one in series.items()
+    }
+    rows = forecast_all(products, nodes[:len(series)])
+    assert rows, "no horizon scored"
+    by_h = {r["horizon_h"]: r for r in rows}
+    assert set(by_h) == set(HORIZONS)
+    for row in rows:
+        assert row["n"] > 0
+        assert row["interval_coverage"] is not None, "band not calibrated"
+        folds = row["folds"]
+        assert folds, "no per-fold decay curve in the payload"
+        assert [f["fold"] for f in folds] == sorted(f["fold"] for f in folds)
+        for f in folds:
+            assert f["n"] > 0 and f["horizon_h"] == row["horizon_h"]
+    diag = rows[0]["diagnostics"]
+    assert diag["nodes_scored"] + diag["nodes_skipped"] == diag["nodes_total"]
+    assert diag["folds_scored"] + diag["folds_skipped"] >= diag["nodes_scored"]
+
+
+def test_every_fold_scores_hours_the_model_never_trained_on(node_series):
+    """Regression guard for the pipeline's own split: no fold may score an
+    hour that appears in its own training slice. The bug this guards against
+    is the one the whole walk-forward change exists to remove - a model
+    graded on its own homework."""
+    _, _, series = node_series
+    one = next(iter(series.values()))
+    X = design_matrix(one, "pm25")
+    for train, calib, score in walk_forward_slices(len(X), folds=3):
+        trained = set(X.index[train]) | set(X.index[calib])
+        scored = set(X.index[score])
+        assert not trained & scored, \
+            "scored window reaches back into the fit or calibration slice"

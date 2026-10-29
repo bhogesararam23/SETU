@@ -131,9 +131,11 @@ def _cmd_check(args: argparse.Namespace) -> int:
     print(f"                above 0.60 posterior: {a['accuracy_above_060']:.3f} "
           f"on {a['share_of_hours_above_060']:.1%} of hours")
     for row in sorted(result.forecast, key=lambda x: x["horizon_h"]):
+        band = (f", band covers {row['interval_coverage']:.1%}"
+                if row.get("interval_coverage") is not None else "")
         print(f"forecast {row['horizon_h']:>2}h      RMSE {row['model_rmse']:.2f} "
               f"vs persistence {row['persistence_rmse']:.2f} "
-              f"(skill {row['skill_vs_persistence']:+.3f})")
+              f"(skill {row['skill_vs_persistence']:+.3f}{band})")
     print(f"response        {r['actions']} dispatches, {r['suppressed']} suppressed")
     print(f"drift           {result.drift['nodes_with_alarms']} nodes alarmed")
     # equal_cost mixes per-lever rows with bookkeeping keys (breach_hours,

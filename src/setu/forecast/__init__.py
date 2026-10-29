@@ -11,6 +11,7 @@ from .graph import (
     hourly_adjacency,
     lag_frame,
     upwind_mean,
+    walk_forward_slices,
 )
 
 __all__ = [
@@ -24,4 +25,5 @@ __all__ = [
     "hourly_adjacency",
     "lag_frame",
     "upwind_mean",
+    "walk_forward_slices",
 ]
