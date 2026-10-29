@@ -134,13 +134,39 @@ secondary falls outside its band, and the cause is read off the twin before the 
 
 ## 4. Forecast skill
 
-| Horizon | n | Model RMSE | Persistence RMSE | Skill | R^2 |
-| --- | --- | --- | --- | --- | --- |
-| 1h | 69,680 | 1.44 | 2.15 | 0.331 | 0.948 |
-| 3h | 69,680 | 1.86 | 4.31 | 0.568 | 0.912 |
-| 6h | 69,680 | 2.18 | 6.77 | 0.678 | 0.880 |
+| Horizon | n | Model RMSE | Persistence RMSE | Skill | R^2 | Band coverage | Band width |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1h | 46,960 | 2.09 | 2.03 | -0.028 | 0.891 | 0.729 | 4.08 |
+| 3h | 46,880 | 4.45 | 4.08 | -0.092 | 0.505 | 0.689 | 8.46 |
+| 6h | 46,760 | 6.38 | 6.28 | -0.016 | -0.016 | 0.658 | 11.89 |
 
-Relative skill rises with horizon because the persistence baseline degrades faster than the model does. Absolute RMSE grows monotonically. Chen et al., Sci. Rep. 14 (2024) report RMSE 19.11 at 7h on dense reference networks; these figures are 40 low-cost nodes on a 320 m grid and are not comparable to them.
+Skill is scored walk-forward: every fold refits on everything before its score slice and calibrates its band on the slice just before that, so no scored hour was ever visible to the model. The table pools all folds; the decay curve below it is where the operational reading is.
+
+Per fold, against how far the scored slice sits from the training data (fold 0 is nearest, the last fold is the end of the window):
+
+| Horizon | Fold | n | Model RMSE | Persistence RMSE | Skill | Band coverage |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1h | 0 | 15,640 | 1.77 | 2.12 | 0.167 | 0.789 |
+| 1h | 1 | 15,640 | 2.08 | 1.88 | -0.110 | 0.629 |
+| 1h | 2 | 15,680 | 2.37 | 2.09 | -0.135 | 0.768 |
+| 3h | 0 | 15,640 | 3.05 | 4.24 | 0.282 | 0.762 |
+| 3h | 1 | 15,640 | 4.58 | 3.50 | -0.307 | 0.526 |
+| 3h | 2 | 15,600 | 5.41 | 4.43 | -0.222 | 0.780 |
+| 6h | 0 | 15,640 | 4.93 | 7.05 | 0.300 | 0.687 |
+| 6h | 1 | 15,640 | 6.40 | 5.15 | -0.244 | 0.519 |
+| 6h | 2 | 15,480 | 7.55 | 6.50 | -0.163 | 0.769 |
+
+Skill falls as the score slice moves away from the training data, which is the finding: the forecast is only as good as the freshness of its fit. A model fitted once at the start of the window and never refitted loses to persistence outright on this data at every horizon - the run-wide negative-skill result that made walk-forward necessary. Operationally that is the same fact the drift monitor reports about calibration: both decay with the season, and both are refreshed by the same periodic refit.
+
+The band is split conformal at nominal 80% coverage: the point prediction plus or minus the held-out quantile of absolute residuals. Measured coverage runs 0.658 to 0.729 across horizons, and falls short of it at every horizon. Coverage is marginal over the calibration slice, not conditional on any single hour, and the width column is what that coverage costs in decisiveness - a band wide enough to straddle the action threshold at all times is honest and useless, and the response engine's uncertainty gate is what refuses to act on it.
+
+Short coverage is the consequence of scoring out of sample, not a broken band. Each fold's band is calibrated on the slice before its score slice, so a regime shift absorbed by the calibration slice widens the band but a shift after it does not; the residual distribution moves and coverage drops with it. A band that quotes nominal coverage here would be the in-sample figure, which is exactly the number this section stopped trusting.
+
+Pooled skill is at or below zero at every horizon, and that is the headline number: across the whole window this model does not beat persistence. The fold table above is why. Only the fold trained nearest to its own score slice is positive; the two folds scored further from their training data are not, and they outnumber it two to one. Read pooled, that averages into a wash. Read per fold, it says the deployed system is worth using exactly as long as it is refitted on current data, which the pipeline does and the pilot's weekly cadence would too.
+
+Chen et al., Sci. Rep. 14 (2024) report RMSE 19.11 at 7h on dense reference networks; these figures are 40 low-cost nodes on a 320 m grid and are not comparable to them.
+
+Diagnostics: 40 of 40 nodes scored across 120 walk-forward fits, 0 nodes and 0 folds skipped as too thin; 960 node-hours dropped for missing meteorology before fitting.
 
 ## 5. Response engine
 
