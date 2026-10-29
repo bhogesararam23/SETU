@@ -5,11 +5,15 @@
 This document tracks the systematic improvement of SETU from its current state (commit `e395d31`) into a robust, reproducible, scientifically credible open-source air quality research project.
 
 **Current Status:**
-- 223 tests defined, 220 passing, 3 failing
+- 290 tests, all passing, none skipped. The one skip the suite used to report
+  was a guard that had switched itself off; it fails now instead
 - Full pipeline runs end-to-end
 - Digital twin validates algorithms against known ground truth
-- Calibration, attribution, forecasting, and response layers all functional
-- Documentation is comprehensive and honest about limitations
+- Calibration, attribution, forecasting, response and I/O layers all functional
+- Milestones 4 (attribution), 5 (forecast), 6 (response) and 7 (data pipeline)
+  complete; milestone 5's GNN task is deferred with its reason written down
+- Documentation is comprehensive and honest about limitations, and now quotes
+  the walk-forward forecast numbers rather than the in-sample ones
 
 **Target:** 50-100 meaningful commits with genuine improvements across all layers.
 
@@ -207,32 +211,16 @@ This document tracks the systematic improvement of SETU from its current state (
 
 ## Implementation Priority
 
-### Immediate (Next 5 Commits)
-1. Fix the 3 failing tests
-2. Run full test suite to confirm 223/223 passing
-3. Add CI workflow file
-4. Fix deprecation warnings
-5. Create first milestone report
+### Done
+- Test reliability, and a CI workflow
+- Calibration, attribution, forecast, response and data-pipeline milestones
 
-### Short-term (Commits 6-20)
-1. Code quality improvements (types, docs, validation)
-2. Calibration layer enhancements
-3. Attribution layer improvements
-4. Add regression gates to CI
-5. Second milestone report
-
-### Medium-term (Commits 21-50)
-1. Forecast layer improvements
-2. Response engine enhancements
-3. Data pipeline improvements
-4. Dashboard/API improvements
-5. Third milestone report
-
-### Long-term (Commits 51-100)
-1. Firmware completion
-2. Advanced features (GNN, conformal prediction)
-3. Production readiness
-4. Final milestone report
+### Next (Commits onward)
+1. Dashboard/API improvements (milestone 8)
+2. Firmware completion (milestone 9)
+3. Regression gates, coverage tracking, release automation (milestone 10)
+4. Documentation sweep across all five docs (milestone 11)
+5. Reproducibility checks and sensitivity analysis (milestone 12)
 
 ---
 
@@ -247,7 +235,7 @@ Each commit should:
 
 ## Testing Strategy
 
-- All commits must pass full test suite (223 tests)
+- All commits must pass the full test suite (290 collected)
 - New features must include tests
 - Bug fixes must include regression tests
 - Performance improvements must maintain accuracy
@@ -265,8 +253,21 @@ Before accepting a commit:
 
 ## Progress Tracking
 
-Use the todo list in development sessions to track progress against this roadmap.
+| Milestone | State |
+| --- | --- |
+| 0 Foundation | done |
+| 1 Test reliability | done - the suite is green; the three named failures were fixed before this pass |
+| 2 Code quality | partial - deprecations and types are addressed where the code was touched, not swept |
+| 3 Calibration | partial - conformal intervals, recalibration triggers and drift monitoring landed; cross-validation of the calibration fit did not |
+| 4 Attribution | done |
+| 5 Forecast | done, except the GNN task, deferred with its reason recorded |
+| 6 Response | done |
+| 7 Data pipeline | done, except CPCB reachability, which is a network fact rather than a code gap |
+| 8-12 | not started |
 
 ## Next Steps
 
-Start with Milestone 1: Fix the 3 failing tests and achieve 223/223 passing test suite.
+Milestone 8: the operator interface. The API serves the payload the report
+renders, but the dashboard has no queue view for the priority-ordered
+dispatches, no view of the suppression ledger by gate, and no way to show a
+forecast trajectory - all of which the layers behind it now produce.

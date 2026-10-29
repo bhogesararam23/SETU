@@ -149,6 +149,29 @@ permissions are not.
   architecture for the deployed system and the wrong one for this dataset; the
   literature results quoted in the write-up come from dense reference networks and
   are not comparable to the skill figures here.
+- **The forecast does not beat persistence across the window.** Scored
+  walk-forward, pooled skill is -0.028 / -0.092 / -0.016 at 1/3/6 h, and only 3 of
+  40 nodes win outright at one hour. Only the fold nearest its own training data
+  is positive (+0.167 / +0.282 / +0.300). Read per fold that says the model is
+  worth using exactly as long as it is refitted on current data, which is what the
+  deployment does; read pooled it says this is not yet a forecast to dispatch on
+  without persistence alongside it. An earlier version of this project quoted
+  +0.33/+0.57/+0.68, which was in-sample.
+- **The forecast band under-covers out of sample.** Split conformal at a nominal
+  0.80 measures 0.658-0.729, because the band is calibrated on the slice before a
+  regime shift that the calibration slice does not see. The response engine's
+  uncertainty gate is tuned to that band, so it is stricter in practice than its
+  nominal level suggests.
+- **Intervention effects have not been measured on anything.** The framework is
+  built - before/after against an untreated-node control, and it refuses a window
+  shorter than its reporting cadence - but every sample returns
+  `insufficient_data` on this data: the twin simulates no intervention, and hourly
+  cadence cannot resolve a 62-minute lever. A half-life claimed from this data
+  would be invented, so none is claimed.
+- **The equal-cost comparison rests on a footprint model**, not on measured
+  downwind decay: one pass is credited with `ceil(half-life / 60)` hours of
+  coverage, uniformly over the day. The comparison is a first-order argument, and
+  the suppressant row exists to show where it stops being informative.
 - The `regional_background` and `mixed` labels the twin emits are deliberately
   excluded from classifier accuracy, since the model has no class for them. That
   raises the reported accuracy and is disclosed here rather than buried.
