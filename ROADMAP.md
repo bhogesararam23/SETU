@@ -86,11 +86,25 @@ This document tracks the systematic improvement of SETU from its current state (
 
 #### Tasks:
 - [ ] Implement proper graph neural network (when data volume supports it)
-- [ ] Add forecast uncertainty estimation
-- [ ] Improve handling of missing meteorological data
-- [ ] Add forecast validation against persistence baseline
-- [ ] Implement multi-step ahead forecasting
-- [ ] Add forecast diagnostics
+  - Deferred with the reason recorded rather than the box ticked: 40 nodes, one
+    season, 1,772 hours. What a GNN buys over the per-node model is spatial
+    structure learned from many nodes across many regimes, and at this size the
+    upwind channel adds nothing measurable - the plume crosses a 320 m pitch in
+    under three minutes, so own lags already carry the signal. Revisit at >150
+    nodes and a full year of data.
+- [x] Add forecast uncertainty estimation - split conformal at 0.20, per
+      horizon, with coverage and mean width scored on every run
+- [x] Improve handling of missing meteorological data - gaps up to three hours
+      bridged and counted, longer ones left missing rather than filled with a
+      wind from hours ago; warm-up and weather losses counted separately
+- [x] Add forecast validation against persistence baseline - walk-forward rather
+      than one split, so the number is the one a refitted deployment gets
+- [x] Implement multi-step ahead forecasting - `forecast_path` chains 1 h
+      predictions into an hourly trajectory for peak timing; the direct horizon
+      models stay the answer for "will it breach at 6 h"
+- [x] Add forecast diagnostics - per-fold decay curve, bias, and the count of
+      nodes that beat persistence, because a pooled mean of zero cannot tell a
+      uniformly marginal grid from a split one
 
 ### Milestone 6: Response Engine Enhancements
 **Goal:** More effective and measurable interventions
