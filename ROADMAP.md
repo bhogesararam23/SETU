@@ -131,12 +131,21 @@ This document tracks the systematic improvement of SETU from its current state (
 **Goal:** More robust and maintainable data pipeline
 
 #### Tasks:
-- [ ] Complete CPCB adapter (currently unreachable)
-- [ ] Add data quality checks and validation
-- [ ] Improve cache management and expiration
-- [ ] Add data provenance tracking
-- [ ] Implement offline mode improvements
-- [ ] Add data source reachability monitoring
+- [x] Complete CPCB adapter (currently unreachable) - parsing, provenance and
+      window behaviour are now tested against the published CSV layout, so the
+      adapter is finished as far as the network allows. The host is still
+      unreachable from this environment and that stays reported, not fixed
+- [x] Add data quality checks and validation - coverage against the claimed
+      span, largest gap, duplicates, physical ranges, frozen-channel runs
+- [x] Improve cache management and expiration - `setu cache` with `--list`,
+      `--prune-age-days` and `--prune-bytes`, oldest-first and never keeping a
+      stale entry at the expense of a fresh one
+- [x] Add data provenance tracking - a fingerprint over the six required
+      channels, plus per-response staleness, in every run's provenance block
+- [x] Implement offline mode improvements - offline runs mark stale cache
+      responses instead of serving them silently, and say so in the report
+- [x] Add data source reachability monitoring - `setu sources` probes every
+      upstream with status and latency, and refuses to pretend in offline mode
 
 ### Milestone 8: Dashboard & API Improvements
 **Goal:** Production-ready operator interface

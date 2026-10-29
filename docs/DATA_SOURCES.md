@@ -52,6 +52,14 @@ winter episode, even though nothing currently consumes it.
 
 ### CPCB CAAQMS — the intended reference
 
+The adapter is now tested against the format itself: `tests/test_io.py` feeds
+it a payload in CPCB's published column layout - one row per pollutant per hour,
+station repeated on each line, `DD/MM/YYYY` dates - and asserts the pivot, the
+provenance it attaches, the handling of a non-numeric value, the HTML-error-page
+case, and that a station down for one day does not lose the whole window. That
+does not make the host reachable, but it means the day it answers, the first
+failure is a real one rather than a header that drifted unseen.
+
 `src/setu/io/cpcb.py` is a real adapter against the documented public CSV
 endpoints, needing no key:
 
@@ -91,6 +99,32 @@ fetch time, and serves it for six hours. `SETU_OFFLINE=1` forbids all network
 egress, so the pipeline can be run on a machine without network access
 against whatever was cached last. `SETU_CACHE_DIR` points the cache somewhere
 else without a code change.
+
+The cache answers three questions it used to only imply. `python -m setu cache`
+reports its size, entry count and age range; `--list` reads the URL back out of
+each sidecar, because the directory itself is keyed by hash and is otherwise
+opaque; `--prune-age-days` and `--prune-bytes` delete oldest-first, so a CI
+runner with a small disk can cap it without ever keeping a stale entry at the
+expense of a fresh one. An offline run that serves a response past its TTL now
+marks it `stale` in provenance, and the report says how many of the run's
+responses those were - offline on the snapshot is a supported path, and it
+should not be mistakable for a live fetch.
+
+Which upstreams are actually answering is a separate question from whether the
+data is any good, and `python -m setu sources` answers it: both Open-Meteo
+endpoints and every CPCB candidate host, with status, latency and what each one
+returned. In `SETU_OFFLINE=1` it reports `probed: false` rather than blaming the
+network for a flag we set ourselves, and the pipeline does the same in its
+provenance block.
+
+Every frame the loader returns also carries an integrity report and a
+fingerprint (`src/setu/io/quality.py`): coverage against the span it claims,
+largest gap, duplicates, values outside physical range, and runs of a channel
+frozen longer than 12 hours - the last being the failure a completeness check
+cannot see, because a sensor stuck at 41.0 µg/m³ is complete and wrong. The
+report prints both, so a run can be checked for data problems before its
+conclusions are read, and two runs that disagree can establish whether they read
+the same numbers.
 
 The daily-work cache is gitignored. **A snapshot of it is not**:
 `data/fixtures/upstream/` holds the real Open-Meteo responses the Rajkot pilot
