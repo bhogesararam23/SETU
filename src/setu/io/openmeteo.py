@@ -26,6 +26,7 @@ import pandas as pd
 from ..config import Site
 from ..errors import UpstreamError
 from .cache import HttpCache
+from .quality import REQUIRED, check_hourly, fingerprint
 
 AQ_BASE = "https://air-quality-api.open-meteo.com/v1/air-quality"
 MET_BASE = "https://api.open-meteo.com/v1/forecast"
@@ -72,6 +73,17 @@ class Provenance:
 
     def as_list(self) -> list[dict[str, Any]]:
         return list(self.records)
+
+    @property
+    def stale(self) -> int:
+        """Responses served past their TTL because the run was offline.
+
+        Non-zero is not a failure - an offline run on the committed snapshot is
+        the supported path - but it changes what the numbers mean, so the report
+        says how many there were rather than leaving it to the reader to notice
+        that `from_cache` was true.
+        """
+        return sum(1 for r in self.records if r.get("stale"))
 
 
 def _url(base: str, lat: float, lon: float, hourly: Iterable[str],
@@ -143,6 +155,14 @@ def load_hourly(site: Site, cache: HttpCache | None = None,
     df = df[complete]
 
     df = _derive(df)
+    # Quality and fingerprint travel with the frame. They are computed once,
+    # here, because every consumer below this line assumes them and none of them
+    # should be recomputing a coverage figure that could disagree with the
+    # report's.
+    quality = check_hourly(df, REQUIRED)
+    df.attrs["quality"] = quality.as_dict()
+    df.attrs["fingerprint"] = fingerprint(df, REQUIRED)
+    df.attrs["stale_responses"] = prov.stale
     df.attrs["source"] = "open-meteo (CAMS global ensemble + IFS met)"
     # The CAMS global ensemble runs on a 0.1 degree grid, about 10 km. Recorded
     # so that nothing downstream can pretend this resolves a street.
