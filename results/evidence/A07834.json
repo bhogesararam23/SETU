@@ -27,5 +27,6 @@
     "gate_min_posterior": 0.45,
     "provenance": "digital-twin"
   },
-  "requires_signoff": true
+  "requires_signoff": true,
+  "priority": 0.1234
 }

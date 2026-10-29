@@ -178,16 +178,22 @@ Diagnostics: 40 of 40 nodes scored across 120 walk-forward fits, 0 nodes and 0 f
 - Zones tracked: 40
 - Human sign-off required: True
 
-| Gate that stopped it | Count |
-| --- | --- |
-| not_armed | 26586 |
-| unknown_source | 19204 |
-| refused_by_evidence | 6513 |
-| dwell | 5502 |
-| persistence | 3029 |
-| uncertainty | 1999 |
+| Gate | Reason | Count |
+| --- | --- | --- |
+| hysteresis | not_armed | 26586 |
+| source | unknown_source | 19204 |
+| source | refused_by_evidence | 6513 |
+| dwell | dwell | 5502 |
+| persistence | persistence | 3029 |
+| uncertainty | uncertainty | 1999 |
 
-The suppression ledger is the point of this table. A dispatcher who receives the same alert forty times in a night stops reading it, so the gates have to be auditable for what they cost as well as what they prevented.
+The suppression ledger is the point of this table. A dispatcher who receives the same alert forty times in a night stops reading it, so the gates have to be auditable for what they cost as well as what they prevented. Rows are grouped by the gate that refused, not by the prose it refused with, so what each gate cost is a sum rather than a reading exercise.
+
+10,530 of those are refusals a clock will clear - a dwell that expires, or the next window. Each carries the time it could next pass, which is what separates a follow-up list from an archive. The rest need new information, and no amount of waiting changes them.
+
+Scheduling: 756 hours carried demand, peaking at 40 dispatches in the hour beginning 2026-08-25 19:00:00, 10.64 on average per active hour. 7,291 dispatches share an hour with at least one other. The queue orders those by expected effect - excess over the action level, times the lever's published effect, times the posterior - rather than by arrival, and `dispatch_plan` will defer the lowest-priority ones with a reason and a retry hour once a crew capacity is set. No capacity is set here; the pile-up is the number that says whether one is needed.
+
+Effect measurement: the framework scored 40 sampled dispatches against an untreated-node control, at hourly cadence. Verdicts - insufficient_data 40. The twin simulates no intervention, so a null is the correct answer and a measured effect would mean the framework was reading the weather. This run is the check that it can produce a null.
 
 ## 6. Does triggering beat a roster, at equal cost?
 
@@ -195,13 +201,15 @@ Both arms get the same number of passes per day. The roster spaces them from a 0
 
 Basis: hours where the coarse fraction cleared 30 ug/m3 and the attributed source was road dust or construction - 16 distinct hours in this window. The engine above was driven at 15 ug/m3.
 
-| Lever (effective window) | Roster coverage | Triggered | Gain |
-| --- | --- | --- | --- |
-| Water sprinkling, 62 min | 0.12 | 0.25 | +0.12 |
-| Vacuum sweeping, 150 min | 0.19 | 0.38 | +0.19 |
-| CaCl2 suppressant, ~20 h | 1.00 | 1.00 | +0.00 |
+| Lever (effective window) | Roster coverage | Triggered | Gain | Passes used |
+| --- | --- | --- | --- | --- |
+| Water sprinkling, 62 min | 0.12 | 0.25 | +0.12 | 2 of 2 |
+| Vacuum sweeping, 150 min | 0.19 | 0.38 | +0.19 | 2 of 2 |
+| CaCl2 suppressant, ~20 h | 1.00 | 1.00 | +0.00 | 1 of 2 |
 
 The suppressant row is the honest one. A lever that lasts a day does not care where you put it, so triggering earns nothing there.
+
+*CaCl2 suppressant, ~20 h* saturates before its allocation is spent: the lever's own window already covers the day, so the equal-cost tie is not two strategies performing alike - it is one pass against a roster still being handed two. The passes-used column is there so that reads as saturation rather than as a draw.
 
 Scored instead on continuously road-proximate dust, present across 22 hours a day, the gain is +0.00. That is the unfavourable case and it is stated rather than omitted: where a source runs around the clock, no placement strategy helps and the only lever that does is a longer-lived one. Triggering pays off on the episodic sources - construction campaigns and burning nights - and not on the chronic one.
 

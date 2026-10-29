@@ -533,17 +533,57 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
     add(f"- Zones tracked: {r['zones_tracked']}")
     add(f"- Human sign-off required: {r['signoff_required']}")
     add("")
-    add("| Gate that stopped it | Count |")
-    add("| --- | --- |")
+    add("| Gate | Reason | Count |")
+    add("| --- | --- | --- |")
+    gate_names = {1: "source", 2: "persistence", 3: "uncertainty",
+                  4: "dwell", 5: "hysteresis"}
+    gate_of = {"unknown_source": 1, "low_posterior": 1, "no_lever": 1,
+               "refused_by_evidence": 1, "persistence": 2, "uncertainty": 3,
+               "dwell": 4, "not_armed": 5}
     for reason, count in sorted(r["suppressed_by_reason"].items(),
-                                key=lambda kv: -kv[1]):
-        add(f"| {reason} | {count} |")
+                                key=lambda kv: (-kv[1], kv[0])):
+        gate = gate_names.get(gate_of.get(reason, 0), "-")
+        add(f"| {gate} | {reason} | {count} |")
     add("")
     add("The suppression ledger is the point of this table. A dispatcher who "
         "receives the same alert forty times in a night stops reading it, so the "
         "gates have to be auditable for what they cost as well as what they "
-        "prevented.")
+        "prevented. Rows are grouped by the gate that refused, not by the prose "
+        "it refused with, so what each gate cost is a sum rather than a reading "
+        "exercise.")
     add("")
+    if r.get("reschedulable"):
+        add(f"{r['reschedulable']:,} of those are refusals a clock will clear - a "
+            "dwell that expires, or the next window. Each carries the time it "
+            "could next pass, which is what separates a follow-up list from an "
+            "archive. The rest need new information, and no amount of waiting "
+            "changes them.")
+        add("")
+    sched = r.get("schedule")
+    if sched and sched.get("hours_with_demand"):
+        add(f"Scheduling: {sched['hours_with_demand']:,} hours carried demand, "
+            f"peaking at {sched['peak_hour_demand']} dispatches in the hour "
+            f"beginning {sched['peak_hour']}, {sched['mean_per_active_hour']} on "
+            f"average per active hour. {sched['dispatches_sharing_an_hour']:,} "
+            "dispatches share an hour with at least one other. The queue orders "
+            "those by expected effect - excess over the action level, times the "
+            "lever's published effect, times the posterior - rather than by "
+            "arrival, and `dispatch_plan` will defer the lowest-priority ones "
+            "with a reason and a retry hour once a crew capacity is set. No "
+            "capacity is set here; the pile-up is the number that says whether "
+            "one is needed.")
+        add("")
+    eff = r.get("effects")
+    if eff and eff.get("attempted"):
+        counts = ", ".join(f"{k} {v}" for k, v in
+                           sorted(eff["verdicts"].items(), key=lambda kv: -kv[1]))
+        add(f"Effect measurement: the framework scored {eff['attempted']} sampled "
+            f"dispatches against an untreated-node control, at "
+            f"{eff['cadence']} cadence. Verdicts - {counts}. The twin simulates "
+            "no intervention, so a null is the correct answer and a measured "
+            "effect would mean the framework was reading the weather. This run "
+            "is the check that it can produce a null.")
+        add("")
 
     add("## 6. Does triggering beat a roster, at equal cost?")
     add("")
@@ -562,21 +602,34 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
             f"The engine above was driven at "
             f"{ec.get('action_threshold_ugm3', 60):.0f} ug/m3.")
     add("")
-    add("| Lever (effective window) | Roster coverage | Triggered | Gain |")
-    add("| --- | --- | --- | --- |")
+    add("| Lever (effective window) | Roster coverage | Triggered | Gain | Passes used |")
+    add("| --- | --- | --- | --- | --- |")
     labels = {
         "sprinkling_62min": "Water sprinkling, 62 min",
         "sweeping_150min": "Vacuum sweeping, 150 min",
         "suppressant_20h": "CaCl2 suppressant, ~20 h",
     }
+    saturated = []
     for key, row in result.equal_cost.items():
         if not isinstance(row, dict) or "roster_coverage" not in row:
             continue
+        used = row.get("passes_used")
+        used_txt = ("-" if used is None else
+                    f"{used:.0f} of {row.get('passes_per_day', 0):.0f}")
         add(f"| {labels.get(key, key)} | {row['roster_coverage']:.2f} | "
-            f"{row['triggered_coverage']:.2f} | {row['gain']:+.2f} |")
+            f"{row['triggered_coverage']:.2f} | {row['gain']:+.2f} | {used_txt} |")
+        if row.get("saturated"):
+            saturated.append(labels.get(key, key))
     add("")
     add("The suppressant row is the honest one. A lever that lasts a day does not "
         "care where you put it, so triggering earns nothing there.")
+    if saturated:
+        add("")
+        add(f"*{', '.join(saturated)}* saturates before its allocation is spent: "
+            "the lever's own window already covers the day, so the equal-cost "
+            "tie is not two strategies performing alike - it is one pass against "
+            "a roster still being handed two. The passes-used column is there so "
+            "that reads as saturation rather than as a draw.")
     add("")
     road = ec.get("road_dust_continuous_profile")
     if road:

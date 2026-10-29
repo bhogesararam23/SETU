@@ -56,14 +56,14 @@
         "url": "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=22.3039&longitude=70.7962&hourly=pm2_5,pm10,carbon_monoxide,nitrogen_dioxide,ozone,sulphur_dioxide,dust,aerosol_optical_depth&past_days=92&forecast_days=0&timezone=Asia/Kolkata&wind_speed_unit=ms",
         "fetched_at_iso": "2026-10-10T21:41:02Z",
         "from_cache": true,
-        "age_seconds": 1645406.6
+        "age_seconds": 1646150.5
       },
       {
         "label": "open-meteo-forecast",
         "url": "https://api.open-meteo.com/v1/forecast?latitude=22.3039&longitude=70.7962&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,surface_pressure,boundary_layer_height&past_days=92&forecast_days=0&timezone=Asia/Kolkata&wind_speed_unit=ms",
         "fetched_at_iso": "2026-10-10T21:41:04Z",
         "from_cache": true,
-        "age_seconds": 1645405.4
+        "age_seconds": 1646149.3
       }
     ],
     "hourly_rows": 1772,
@@ -3118,14 +3118,39 @@
       "not_armed": 26586,
       "uncertainty": 1999
     },
+    "suppressed_by_gate": {
+      "source": 25717,
+      "persistence": 3029,
+      "dwell": 5502,
+      "hysteresis": 26586,
+      "uncertainty": 1999
+    },
+    "reschedulable": 10530,
     "actions_by_lever": {
       "vacuum_sweeping": 4907,
       "signal_retiming": 1878,
       "patrol_open_burning": 925,
       "site_notice": 337
     },
+    "max_priority": 0.3795,
+    "dosing_scales": {},
     "zones_tracked": 40,
-    "signoff_required": true
+    "signoff_required": true,
+    "schedule": {
+      "hours_with_demand": 756,
+      "peak_hour_demand": 40,
+      "peak_hour": "2026-08-25 19:00:00",
+      "mean_per_active_hour": 10.64,
+      "dispatches_sharing_an_hour": 7291
+    },
+    "effects": {
+      "attempted": 40,
+      "verdicts": {
+        "insufficient_data": 40
+      },
+      "median_adjusted_pct": null,
+      "cadence": "hourly"
+    }
   },
   "sample_actions": [
     {
@@ -3157,13 +3182,16 @@
         "gate_min_posterior": 0.45,
         "provenance": "digital-twin"
       },
-      "requires_signoff": true
+      "requires_signoff": true,
+      "priority": 0.1271
     },
     {
       "node": "rajkot-00",
       "at": "2026-07-29 04:00:00",
       "reason": "persistence",
-      "detail": "1 of last 4 windows breached, need 3"
+      "detail": "1 of last 4 windows breached, need 3",
+      "gate": 2,
+      "retry_at": "2026-07-29 05:00:00"
     },
     {
       "id": "A07834",
@@ -3194,13 +3222,16 @@
         "gate_min_posterior": 0.45,
         "provenance": "digital-twin"
       },
-      "requires_signoff": true
+      "requires_signoff": true,
+      "priority": 0.1234
     },
     {
       "node": "rajkot-01",
       "at": "2026-07-29 04:00:00",
       "reason": "unknown_source",
-      "detail": "no policy for ambiguous"
+      "detail": "no policy for ambiguous",
+      "gate": 1,
+      "retry_at": null
     },
     {
       "id": "A00001",
@@ -3231,13 +3262,16 @@
         "gate_min_posterior": 0.45,
         "provenance": "digital-twin"
       },
-      "requires_signoff": true
+      "requires_signoff": true,
+      "priority": 0.1181
     },
     {
       "node": "rajkot-02",
       "at": "2026-07-29 04:00:00",
       "reason": "unknown_source",
-      "detail": "no policy for ambiguous"
+      "detail": "no policy for ambiguous",
+      "gate": 1,
+      "retry_at": null
     },
     {
       "id": "A00153",
@@ -3268,13 +3302,16 @@
         "gate_min_posterior": 0.45,
         "provenance": "digital-twin"
       },
-      "requires_signoff": true
+      "requires_signoff": true,
+      "priority": 0.1177
     },
     {
       "node": "rajkot-03",
       "at": "2026-07-29 04:00:00",
       "reason": "unknown_source",
-      "detail": "no policy for ambiguous"
+      "detail": "no policy for ambiguous",
+      "gate": 1,
+      "retry_at": null
     },
     {
       "id": "A00291",
@@ -3305,13 +3342,16 @@
         "gate_min_posterior": 0.45,
         "provenance": "digital-twin"
       },
-      "requires_signoff": true
+      "requires_signoff": true,
+      "priority": 0.1272
     },
     {
       "node": "rajkot-05",
       "at": "2026-07-29 04:00:00",
       "reason": "persistence",
-      "detail": "1 of last 4 windows breached, need 3"
+      "detail": "1 of last 4 windows breached, need 3",
+      "gate": 2,
+      "retry_at": "2026-07-29 05:00:00"
     },
     {
       "id": "A00464",
@@ -3342,13 +3382,16 @@
         "gate_min_posterior": 0.45,
         "provenance": "digital-twin"
       },
-      "requires_signoff": true
+      "requires_signoff": true,
+      "priority": 0.1177
     },
     {
       "node": "rajkot-06",
       "at": "2026-07-29 04:00:00",
       "reason": "unknown_source",
-      "detail": "no policy for ambiguous"
+      "detail": "no policy for ambiguous",
+      "gate": 1,
+      "retry_at": null
     },
     {
       "id": "A00603",
@@ -3379,13 +3422,16 @@
         "gate_min_posterior": 0.45,
         "provenance": "digital-twin"
       },
-      "requires_signoff": true
+      "requires_signoff": true,
+      "priority": 0.0824
     },
     {
       "node": "rajkot-07",
       "at": "2026-07-29 04:00:00",
       "reason": "unknown_source",
-      "detail": "no policy for ambiguous"
+      "detail": "no policy for ambiguous",
+      "gate": 1,
+      "retry_at": null
     },
     {
       "id": "A00745",
@@ -3416,13 +3462,16 @@
         "gate_min_posterior": 0.45,
         "provenance": "digital-twin"
       },
-      "requires_signoff": true
+      "requires_signoff": true,
+      "priority": 0.0797
     },
     {
       "node": "rajkot-08",
       "at": "2026-07-29 04:00:00",
       "reason": "unknown_source",
-      "detail": "no policy for ambiguous"
+      "detail": "no policy for ambiguous",
+      "gate": 1,
+      "retry_at": null
     },
     {
       "id": "A00927",
@@ -3453,13 +3502,16 @@
         "gate_min_posterior": 0.45,
         "provenance": "digital-twin"
       },
-      "requires_signoff": true
+      "requires_signoff": true,
+      "priority": 0.0869
     },
     {
       "node": "rajkot-10",
       "at": "2026-07-29 04:00:00",
       "reason": "unknown_source",
-      "detail": "no policy for ambiguous"
+      "detail": "no policy for ambiguous",
+      "gate": 1,
+      "retry_at": null
     },
     {
       "id": "A01156",
@@ -3490,13 +3542,16 @@
         "gate_min_posterior": 0.45,
         "provenance": "digital-twin"
       },
-      "requires_signoff": true
+      "requires_signoff": true,
+      "priority": 0.083
     },
     {
       "node": "rajkot-11",
       "at": "2026-07-29 04:00:00",
       "reason": "unknown_source",
-      "detail": "no policy for ambiguous"
+      "detail": "no policy for ambiguous",
+      "gate": 1,
+      "retry_at": null
     },
     {
       "id": "A01411",
@@ -3527,13 +3582,16 @@
         "gate_min_posterior": 0.45,
         "provenance": "digital-twin"
       },
-      "requires_signoff": true
+      "requires_signoff": true,
+      "priority": 0.1162
     },
     {
       "node": "rajkot-12",
       "at": "2026-07-29 04:00:00",
       "reason": "unknown_source",
-      "detail": "no policy for ambiguous"
+      "detail": "no policy for ambiguous",
+      "gate": 1,
+      "retry_at": null
     },
     {
       "id": "A01539",
@@ -3564,13 +3622,16 @@
         "gate_min_posterior": 0.45,
         "provenance": "digital-twin"
       },
-      "requires_signoff": true
+      "requires_signoff": true,
+      "priority": 0.1233
     },
     {
       "node": "rajkot-13",
       "at": "2026-07-29 04:00:00",
       "reason": "unknown_source",
-      "detail": "no policy for ambiguous"
+      "detail": "no policy for ambiguous",
+      "gate": 1,
+      "retry_at": null
     },
     {
       "id": "A01682",
@@ -3601,13 +3662,16 @@
         "gate_min_posterior": 0.45,
         "provenance": "digital-twin"
       },
-      "requires_signoff": true
+      "requires_signoff": true,
+      "priority": 0.122
     },
     {
       "node": "rajkot-15",
       "at": "2026-07-29 04:00:00",
       "reason": "unknown_source",
-      "detail": "no policy for ambiguous"
+      "detail": "no policy for ambiguous",
+      "gate": 1,
+      "retry_at": null
     },
     {
       "id": "A01867",
@@ -3638,13 +3702,16 @@
         "gate_min_posterior": 0.45,
         "provenance": "digital-twin"
       },
-      "requires_signoff": true
+      "requires_signoff": true,
+      "priority": 0.1233
     },
     {
       "node": "rajkot-16",
       "at": "2026-07-29 04:00:00",
       "reason": "unknown_source",
-      "detail": "no policy for ambiguous"
+      "detail": "no policy for ambiguous",
+      "gate": 1,
+      "retry_at": null
     },
     {
       "id": "A02027",
@@ -3675,13 +3742,16 @@
         "gate_min_posterior": 0.45,
         "provenance": "digital-twin"
       },
-      "requires_signoff": true
+      "requires_signoff": true,
+      "priority": 0.123
     },
     {
       "node": "rajkot-17",
       "at": "2026-07-29 04:00:00",
       "reason": "persistence",
-      "detail": "1 of last 4 windows breached, need 3"
+      "detail": "1 of last 4 windows breached, need 3",
+      "gate": 2,
+      "retry_at": "2026-07-29 05:00:00"
     },
     {
       "id": "A02229",
@@ -3712,13 +3782,16 @@
         "gate_min_posterior": 0.45,
         "provenance": "digital-twin"
       },
-      "requires_signoff": true
+      "requires_signoff": true,
+      "priority": 0.1218
     },
     {
       "node": "rajkot-18",
       "at": "2026-07-29 04:00:00",
       "reason": "persistence",
-      "detail": "1 of last 4 windows breached, need 3"
+      "detail": "1 of last 4 windows breached, need 3",
+      "gate": 2,
+      "retry_at": "2026-07-29 05:00:00"
     },
     {
       "id": "A02394",
@@ -3749,13 +3822,16 @@
         "gate_min_posterior": 0.45,
         "provenance": "digital-twin"
       },
-      "requires_signoff": true
+      "requires_signoff": true,
+      "priority": 0.1199
     },
     {
       "node": "rajkot-20",
       "at": "2026-07-29 04:00:00",
       "reason": "unknown_source",
-      "detail": "no policy for ambiguous"
+      "detail": "no policy for ambiguous",
+      "gate": 1,
+      "retry_at": null
     },
     {
       "id": "A02557",
@@ -3786,13 +3862,16 @@
         "gate_min_posterior": 0.45,
         "provenance": "digital-twin"
       },
-      "requires_signoff": true
+      "requires_signoff": true,
+      "priority": 0.0802
     },
     {
       "node": "rajkot-21",
       "at": "2026-07-29 04:00:00",
       "reason": "unknown_source",
-      "detail": "no policy for ambiguous"
+      "detail": "no policy for ambiguous",
+      "gate": 1,
+      "retry_at": null
     },
     {
       "id": "A02721",
@@ -3823,13 +3902,16 @@
         "gate_min_posterior": 0.45,
         "provenance": "digital-twin"
       },
-      "requires_signoff": true
+      "requires_signoff": true,
+      "priority": 0.0983
     },
     {
       "node": "rajkot-22",
       "at": "2026-07-29 04:00:00",
       "reason": "persistence",
-      "detail": "1 of last 4 windows breached, need 3"
+      "detail": "1 of last 4 windows breached, need 3",
+      "gate": 2,
+      "retry_at": "2026-07-29 05:00:00"
     },
     {
       "id": "A02984",
@@ -3860,13 +3942,16 @@
         "gate_min_posterior": 0.45,
         "provenance": "digital-twin"
       },
-      "requires_signoff": true
+      "requires_signoff": true,
+      "priority": 0.1194
     },
     {
       "node": "rajkot-23",
       "at": "2026-07-29 04:00:00",
       "reason": "unknown_source",
-      "detail": "no policy for ambiguous"
+      "detail": "no policy for ambiguous",
+      "gate": 1,
+      "retry_at": null
     }
   ],
   "drift": {
@@ -3957,21 +4042,27 @@
       "triggered_coverage": 0.25,
       "breach_hours_per_day": 16.0,
       "gain": 0.125,
-      "passes_per_day": 2.0
+      "passes_per_day": 2.0,
+      "passes_used": 2.0,
+      "saturated": false
     },
     "sweeping_150min": {
       "roster_coverage": 0.1875,
       "triggered_coverage": 0.375,
       "breach_hours_per_day": 16.0,
       "gain": 0.1875,
-      "passes_per_day": 2.0
+      "passes_per_day": 2.0,
+      "passes_used": 2.0,
+      "saturated": false
     },
     "suppressant_20h": {
       "roster_coverage": 1.0,
       "triggered_coverage": 1.0,
       "breach_hours_per_day": 16.0,
       "gain": 0.0,
-      "passes_per_day": 2.0
+      "passes_per_day": 2.0,
+      "passes_used": 1.0,
+      "saturated": true
     },
     "breach_hours": [
       8,
@@ -3999,21 +4090,27 @@
         "triggered_coverage": 0.1818,
         "breach_hours_per_day": 22.0,
         "gain": 0.0,
-        "passes_per_day": 2.0
+        "passes_per_day": 2.0,
+        "passes_used": 2.0,
+        "saturated": false
       },
       "sweeping_150min": {
         "roster_coverage": 0.2727,
         "triggered_coverage": 0.2727,
         "breach_hours_per_day": 22.0,
         "gain": 0.0,
-        "passes_per_day": 2.0
+        "passes_per_day": 2.0,
+        "passes_used": 2.0,
+        "saturated": false
       },
       "suppressant_20h": {
         "roster_coverage": 1.0,
         "triggered_coverage": 1.0,
         "breach_hours_per_day": 22.0,
         "gain": 0.0,
-        "passes_per_day": 2.0
+        "passes_per_day": 2.0,
+        "passes_used": 2.0,
+        "saturated": false
       },
       "breach_hours": [
         0,
