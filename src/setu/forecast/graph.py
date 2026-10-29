@@ -283,6 +283,54 @@ class GraphForecaster:
         return (pd.Series(np.clip(centre - half, 0.0, None), index=centre.index),
                 pd.Series(centre + half, index=centre.index))
 
+    def forecast_path(self, history: pd.Series, met: pd.DataFrame,
+                      steps: int = HORIZONS[-1]) -> pd.Series:
+        """A chained hourly trajectory, for when the peak lands as well as if.
+
+        The direct models above answer one horizon each from observed state.
+        The response engine needs more than the three horizons: whether a
+        breach at 6h started at 2h or at 5h decides whether the window is still
+        open. Only the 1h model can be chained - it is the only one whose input
+        is a single observed hour - so the path is 1h predictions fed back in,
+        and the caller is told what that costs: nothing here is a calibrated
+        band, and the error compounds with each step.
+
+        Meteorology for the future hours must be supplied. Observed weather in
+        a backtest, a forecast in deployment, and an error if it is missing -
+        a path that invented weather would be a forecast of the weather, not of
+        the air.
+        """
+        if 1 not in self._models:
+            raise CalibrationError("a path is chained from the 1h model; fit it first")
+        if steps < 1:
+            raise CalibrationError("steps must be at least 1")
+        tail = history.dropna().astype(float).iloc[-(max(LAGS) + 1):]
+        if len(tail) < max(LAGS) + 1:
+            raise CalibrationError(
+                f"a path needs {max(LAGS) + 1} hours of history, got {len(tail)}")
+        frame = tail.rename("pm25").to_frame()
+        out_index: list[pd.Timestamp] = []
+        out_values: list[float] = []
+        for _ in range(steps):
+            step_ts = frame.index[-1] + pd.Timedelta(hours=1)
+            if step_ts not in met.index:
+                raise CalibrationError(
+                    f"no meteorology for {step_ts} - a path cannot invent weather")
+            # The step starts from the last value the chain knows, which for the
+            # first step is the last observation and after that is the previous
+            # prediction - lag_0 and lag_1 therefore agree, as they do at the
+            # end of an observed series.
+            frame.loc[step_ts, "pm25"] = float(frame["pm25"].iloc[-1])
+            row_met = met.loc[[step_ts]]
+            joined = pd.concat([frame, row_met], axis=1)
+            X = design_matrix(joined, "pm25").iloc[[-1]]
+            prediction = float(self.predict(X, 1).iloc[0])
+            # The prediction becomes the observation the next step starts from.
+            frame.loc[step_ts, "pm25"] = prediction
+            out_index.append(step_ts)
+            out_values.append(prediction)
+        return pd.Series(out_values, index=pd.DatetimeIndex(out_index), name="pm25")
+
     def fit_seasonal_baseline(self, y: pd.Series) -> "GraphForecaster":
         """Mean by (hour, day-of-week) - the cheap forecast it must beat."""
         key = pd.MultiIndex.from_arrays([y.index.hour, y.index.dayofweek])

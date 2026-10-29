@@ -179,6 +179,19 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
     add("| Triggering beats a fixed roster at equal cost | **Conditionally** | "
         "Only when the lever is short-lived and the source is episodic; both "
         "null results are shown below |")
+    fc = [r for r in result.forecast if r.get("skill_vs_persistence") is not None]
+    if fc:
+        pooled = [r["skill_vs_persistence"] for r in fc]
+        near = [f["skill_vs_persistence"] for r in fc
+                for f in (r.get("folds") or []) if f["fold"] == 0]
+        verdict = ("**No, pooled**" if max(pooled) <= 0.0
+                   else "**Yes, pooled**")
+        near_txt = (f", but the fold nearest its training data scores "
+                    f"{min(near):+.3f} to {max(near):+.3f}" if near else "")
+        add(f"| The forecast beats persistence | {verdict} | Pooled skill "
+            f"{min(pooled):+.3f} to {max(pooled):+.3f} at 1/3/6 h{near_txt}. "
+            "Read as a claim about a refitted deployment, not a fixed model - "
+            "section 4 has the decay curve |")
     add("")
 
     add("## 1. Calibration")
@@ -379,8 +392,8 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
 
     add("## 4. Forecast skill")
     add("")
-    add("| Horizon | n | Model RMSE | Persistence RMSE | Skill | R^2 | Band coverage | Band width |")
-    add("| --- | --- | --- | --- | --- | --- | --- | --- |")
+    add("| Horizon | n | Model RMSE | Persistence RMSE | Skill | R^2 | Bias | Band coverage | Band width |")
+    add("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
     for row in sorted(result.forecast, key=lambda r: r["horizon_h"]):
         cov = (f"{row['interval_coverage']:.3f}"
                if row.get("interval_coverage") is not None else "-")
@@ -389,7 +402,7 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
         add(f"| {row['horizon_h']}h | {row['n']:,} | {_fmt(row['model_rmse'], 2)} | "
             f"{_fmt(row['persistence_rmse'], 2)} | "
             f"{_fmt(row['skill_vs_persistence'], 3)} | {_fmt(row['model_r2'], 3)} | "
-            f"{cov} | {width} |")
+            f"{_fmt(row.get('bias'), 3)} | {cov} | {width} |")
     add("")
     add("Skill is scored walk-forward: every fold refits on everything before "
         "its score slice and calibrates its band on the slice just before that, "
@@ -476,14 +489,29 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
         "reference networks; these figures are 40 low-cost nodes on a 320 m grid "
         "and are not comparable to them.")
     add("")
+    beat = [r for r in result.forecast if r.get("nodes_beating_persistence") is not None]
+    if beat:
+        parts = ", ".join(
+            f"{r['nodes_beating_persistence']} of {r['nodes_compared']} at {r['horizon_h']}h"
+            for r in sorted(beat, key=lambda r: r["horizon_h"]))
+        add(f"Nodes where the model beats persistence outright: {parts}. The "
+            "pooled skill above is a mean over nodes and hours, and a mean of "
+            "zero is ambiguous between a grid that is uniformly marginal and "
+            "one that is split between winners and losers; this is the count "
+            "that tells them apart, and the bias column is the sign check on "
+            "the same rows.")
+        add("")
     diag = next((r.get("diagnostics") for r in result.forecast if r.get("diagnostics")),
                 None)
     if diag:
         add(f"Diagnostics: {diag['nodes_scored']} of {diag['nodes_total']} nodes "
             f"scored across {diag['folds_scored']} walk-forward fits, "
             f"{diag['nodes_skipped']} nodes and {diag['folds_skipped']} folds "
-            f"skipped as too thin; {diag['rows_missing_met']} node-hours "
-            "dropped for missing meteorology before fitting.")
+            f"skipped as too thin. {diag['rows_warmup']:,} node-hours were lost "
+            f"to the {diag['warmup_hours']}-hour lag warm-up and "
+            f"{diag['rows_missing_met']:,} had no usable meteorology at all; "
+            f"{diag['met_hours_bridged']:,} short weather gaps were bridged "
+            "across up to three hours, and longer ones were left missing.")
     add("")
 
     add("## 5. Response engine")

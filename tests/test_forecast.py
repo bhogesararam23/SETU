@@ -21,6 +21,7 @@ from setu.forecast import (
 )
 from setu.io import openmeteo as om
 from setu.io.cache import HttpCache
+from setu.pipeline import NodeProduct, bridge_met_gaps, forecast_all
 
 
 @pytest.fixture(scope="module")
@@ -117,45 +118,116 @@ def test_evaluate_forecast_rejects_an_incomplete_frame():
         evaluate_forecast({1: bad})
 
 
-def test_beats_persistence_at_one_hour(node_series):
-    """The claim the forecast earns its place on.
+def test_the_baseline_the_model_actually_beats_is_the_climatology(node_series):
+    """Scored out of sample, the win is against the hour-of-week mean.
 
-    If it cannot beat "the value will be what it is now", the response engine
-    should run on observations and the model should stay in shadow mode.
+    The earlier version of this test fitted and scored on the same rows and
+    asserted skill > 0.20 against persistence. It passed and it was measuring
+    the wrong thing: an in-sample fit on the monsoon, quoted as the claim the
+    forecast earns its place on. Walk-forward on the same window puts skill
+    against persistence below zero at every horizon, because the held-out
+    slices are a different regime and persistence is exactly what a different
+    regime rewards.
+
+    What survives out of sample is the diurnal climatology: a forecast that
+    cannot beat "this hour last week" is a table, not a forecast. That is the
+    comparison asserted here, and the pooled persistence number is asserted to
+    be present rather than assumed positive.
     """
     _, nodes, series = node_series
     per_horizon: dict[int, list[pd.DataFrame]] = {h: [] for h in HORIZONS}
     for nid, one in series.items():
         X = design_matrix(one, "pm25")
         targets = {h: one["pm25"].shift(-h) for h in HORIZONS}
-        model = GraphForecaster(horizons=HORIZONS).fit(X, targets)
-        model.fit_seasonal_baseline(one["pm25"])
-        base = X.iloc[24:-7]
-        for h in HORIZONS:
-            frame = pd.DataFrame({
-                "actual": targets[h].reindex(base.index),
-                "predicted": model.predict(base, h),
-                "persistence": one["pm25"].reindex(base.index),
-                "seasonal": model.seasonal_predict(base.index),
-            })
-            frame["node"] = nid
-            per_horizon[h].append(frame)
+        for train, calib, score in walk_forward_slices(len(X)):
+            model = GraphForecaster(horizons=HORIZONS).fit(
+                X.iloc[train], {h: s.iloc[train] for h, s in targets.items()})
+            model.calibrate_intervals(
+                X.iloc[calib], {h: s.iloc[calib] for h, s in targets.items()})
+            model.fit_seasonal_baseline(one["pm25"].iloc[train])
+            window = X.iloc[score]
+            for h in HORIZONS:
+                lo, hi = model.predict_interval(window, h)
+                frame = pd.DataFrame({
+                    "actual": targets[h].reindex(window.index),
+                    "predicted": model.predict(window, h),
+                    "persistence": one["pm25"].reindex(window.index),
+                    "seasonal": model.seasonal_predict(window.index),
+                    "interval_lo": lo,
+                    "interval_hi": hi,
+                })
+                frame["node"] = nid
+                per_horizon[h].append(frame)
 
-    rows = [evaluate_forecast({h: pd.concat(v)}, )[0]
-            for h, v in ((h, per_horizon[h]) for h in HORIZONS)]
-
-    one_h = next(r for r in rows if r.horizon_h == 1)
-    assert one_h.skill_vs_persistence > 0.20
-    assert one_h.skill_vs_diurnal > 0.0
-    # Absolute error must grow with horizon. Relative skill against persistence
-    # does the opposite - it rises - because the persistence baseline degrades
-    # far faster than the model does. Asserting that skill decays would encode
-    # a misconception, and this is exactly the number a reviewer is likely to
-    # read as "too good at 6 hours than at 1 hour, suspicious".
+    rows = [evaluate_forecast({h: pd.concat(v)})[0] for h, v in per_horizon.items()]
     by_h = sorted(rows, key=lambda r: r.horizon_h)
+
+    assert by_h[0].horizon_h == 1
+    assert by_h[0].skill_vs_diurnal > 0.30
+    assert all(r.skill_vs_diurnal > 0 for r in by_h)
+    # Absolute error must grow with horizon, and so must the baseline it is
+    # measured against - that is a property of the data, not of the model, and
+    # the report's decay curve is what says how much survives.
     assert by_h[0].model_rmse < by_h[-1].model_rmse
     assert by_h[-1].persistence_rmse > by_h[0].persistence_rmse
-    assert all(r.skill_vs_persistence > 0 for r in by_h)
+    # Pooled skill against persistence is reported, not claimed: it is negative
+    # on this window and the report says so in as many words.
+    assert all(np.isfinite(r.skill_vs_persistence) for r in by_h)
+    assert all(r.interval_coverage is not None for r in by_h)
+
+
+def test_a_chained_path_is_hourly_and_carries_the_last_observation(node_series):
+    """Multi-step ahead: 1h predictions chained, not three models stitched.
+
+    The engine acts on 1/3/6 h horizons, but it also has to know when a breach
+    starts, and only the 1h model can be iterated because it is the only one
+    whose input is a single observed hour. The path must therefore begin at the
+    hour after the last observation, be hourly throughout, and stay physical.
+    """
+    _, _, series = node_series
+    one = next(iter(series.values()))
+    met_cols = ["rh", "wind_speed_ms", "wind_dir_deg", "temp_c"]
+    X = design_matrix(one, "pm25")
+    targets = {h: one["pm25"].shift(-h) for h in HORIZONS}
+    model = GraphForecaster(horizons=HORIZONS).fit(X.iloc[:800], {
+        h: s.iloc[:800] for h, s in targets.items()})
+
+    path = model.forecast_path(one["pm25"].iloc[:800], one[met_cols].iloc[700:], steps=6)
+
+    assert len(path) == 6
+    assert path.index[0] == one.index[800]
+    assert (path.index.to_series().diff().dropna()
+            == pd.Timedelta(hours=1)).all()
+    assert np.isfinite(path.to_numpy()).all()
+    assert (path >= 0.0).all()
+
+    # A model that fits increments has no-change as its floor, so a history
+    # that has been flat cannot produce a path that climbs: anything else
+    # would mean the chain was re-reading a stale lag as fresh weather.
+    flat = pd.Series(20.0, index=one.index[:800])
+    flat_model = GraphForecaster(horizons=HORIZONS).fit(
+        design_matrix(one.assign(pm25=flat), "pm25").iloc[:800],
+        {h: flat.shift(-h) for h in HORIZONS})
+    flat_path = flat_model.forecast_path(flat, one[met_cols].iloc[700:], steps=4)
+    assert (flat_path - 20.0).abs().max() < 5.0
+
+
+def test_a_path_without_weather_says_so(node_series):
+    """A path cannot invent the weather it is a forecast of."""
+    _, _, series = node_series
+    one = next(iter(series.values()))
+    met_cols = ["rh", "wind_speed_ms", "wind_dir_deg", "temp_c"]
+    X = design_matrix(one, "pm25")
+    model = GraphForecaster(horizons=HORIZONS).fit(X.iloc[:800], {
+        h: one["pm25"].shift(-h).iloc[:800] for h in HORIZONS})
+
+    with pytest.raises(CalibrationError, match="meteorology"):
+        model.forecast_path(one["pm25"].iloc[:400], one[met_cols].iloc[300:340],
+                            steps=6)
+    with pytest.raises(CalibrationError, match="history"):
+        model.forecast_path(one["pm25"].iloc[:10], one[met_cols].iloc[:400], steps=2)
+    with pytest.raises(CalibrationError, match="at least 1"):
+        model.forecast_path(one["pm25"].iloc[:800], one[met_cols].iloc[700:], steps=0)
 
 
 def test_hourly_adjacency_is_cached_per_hour(node_series):
@@ -318,9 +390,50 @@ def test_forecast_all_scores_walk_forward_and_carries_the_decay_curve(node_serie
         assert [f["fold"] for f in folds] == sorted(f["fold"] for f in folds)
         for f in folds:
             assert f["n"] > 0 and f["horizon_h"] == row["horizon_h"]
+        assert row["nodes_compared"] == len(series)
+        assert 0 <= row["nodes_beating_persistence"] <= row["nodes_compared"]
+        assert np.isfinite(row["bias"])
     diag = rows[0]["diagnostics"]
     assert diag["nodes_scored"] + diag["nodes_skipped"] == diag["nodes_total"]
     assert diag["folds_scored"] + diag["folds_skipped"] >= diag["nodes_scored"]
+    # Warm-up and missing weather are separate losses, and on this grid the
+    # warm-up is the larger one - reporting them as one number made 960 rows of
+    # lag window look like a meteorology outage.
+    assert diag["rows_warmup"] >= diag["warmup_hours"] * len(series)
+    assert diag["rows_missing_met"] >= 0
+    assert diag["met_hours_bridged"] >= 0
+
+
+def test_only_short_weather_gaps_are_bridged():
+    """A two-hour outage is bridged; a nine-hour one is weather, not a gap."""
+    # hours 0-2 observed, 3-4 missing (short gap), 5-7 observed,
+    # 8-12 missing (long outage), 13 observed.
+    idx = pd.date_range("2026-09-01", periods=14, freq="h")
+    df = pd.DataFrame({
+        "rh_frac": [0.5] * 3 + [np.nan] * 2 + [0.6] * 3 + [np.nan] * 5 + [0.7],
+        "wind_speed_ms": [3.0] * 3 + [np.nan] * 2 + [4.0] * 3 + [np.nan] * 5 + [6.0],
+        "wind_dir_deg": 270.0,
+        "temp_c": 30.0,
+    }, index=idx)
+
+    out, bridged = bridge_met_gaps(df, limit=3)
+
+    # Two consecutive missing hours: filled from the hour before them.
+    assert out["rh_frac"].iloc[3] == pytest.approx(0.5)
+    assert out["rh_frac"].iloc[4] == pytest.approx(0.5)
+    assert out["wind_speed_ms"].iloc[4] == pytest.approx(3.0)
+    # Five consecutive: the first three fill, the last two stay missing rather
+    # than carrying a wind from five hours ago into a wind-aware model.
+    assert out["wind_speed_ms"].iloc[8:11].notna().all()
+    assert out["wind_speed_ms"].iloc[8] == pytest.approx(4.0)
+    assert out["rh_frac"].iloc[11:13].isna().all()
+    assert bridged == 5
+    # Nothing that was observed may be rewritten.
+    observed = [0, 1, 2, 5, 6, 7, 13]
+    assert (out["rh_frac"].iloc[observed]
+            == df["rh_frac"].iloc[observed]).all()
+    assert (out["wind_speed_ms"].iloc[observed]
+            == df["wind_speed_ms"].iloc[observed]).all()
 
 
 def test_every_fold_scores_hours_the_model_never_trained_on(node_series):

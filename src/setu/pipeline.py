@@ -28,6 +28,7 @@ from .calibrate import CalibrationModel, CusumMonitor, transfer_calibrate
 from .config import Site, load_action_table, load_signatures, load_site
 from .forecast import (
     HORIZONS,
+    LAGS,
     GraphForecaster,
     design_matrix,
     evaluate_forecast,
@@ -303,6 +304,29 @@ def attribute_all(products: Mapping[str, NodeProduct],
     return stats, compare_to_receptor(shares, published)
 
 
+def bridge_met_gaps(joined: pd.DataFrame, limit: int = 3
+                    ) -> tuple[pd.DataFrame, int]:
+    """Forward-fill meteorological gaps of up to `limit` hours, count them.
+
+    The background feed drops an hour when any channel is incomplete, and the
+    forecast needs the current weather to say anything at all. Dropping those
+    rows costs the training set real hours; a two-hour sensor outage was not a
+    two-hour gap in the weather. Bridging is bounded on purpose - past a few
+    hours a held value is a guess about the wind, which is the one input this
+    model is wind-aware about, so longer gaps stay missing and stay counted
+    rather than being filled with a plausible number.
+    """
+    cols = ["rh_frac", "wind_speed_ms", "wind_dir_deg", "temp_c"]
+    out = joined.copy()
+    missing = out[cols].isna().any(axis=1)
+    # ffill(limit=) already stops after `limit` consecutive rows, so the 4th
+    # hour of an outage keeps its NaN and is counted as missing rather than
+    # being handed a wind from three hours ago.
+    out[cols] = out[cols].ffill(limit=limit)
+    bridged = int((missing & out[cols].notna().all(axis=1)).sum())
+    return out, bridged
+
+
 def forecast_all(products: Mapping[str, NodeProduct],
                  nodes: Sequence[grid.Node]) -> list[dict]:
     """Walk-forward forecast evaluation: refit per fold, score every fold.
@@ -322,16 +346,26 @@ def forecast_all(products: Mapping[str, NodeProduct],
     frames: dict[int, list[pd.DataFrame]] = {h: [] for h in HORIZONS}
     diagnostics: dict[str, int] = {
         "nodes_total": len(products), "nodes_scored": 0, "nodes_skipped": 0,
-        "folds_scored": 0, "folds_skipped": 0, "rows_missing_met": 0,
+        "folds_scored": 0, "folds_skipped": 0,
+        # Warm-up and missing weather are different losses and used to be
+        # reported as one number: the longest lag alone costs 24 rows per node,
+        # which is 960 on this grid, so "missing meteorology" was almost
+        # entirely the lag window and the real gaps were invisible under it.
+        "rows_missing_met": 0, "rows_warmup": 0, "met_hours_bridged": 0,
+        "warmup_hours": int(max(LAGS)),
     }
     for nid, p in products.items():
         one = p.calibrated.rename(columns={"value": "pm25"})
         joined = p.truth[["rh", "wind_speed_ms", "wind_dir_deg", "temp_c"]].copy()
         joined["rh_frac"] = joined["rh"]
+        joined, bridged = bridge_met_gaps(joined)
+        diagnostics["met_hours_bridged"] += bridged
+        met_cols = ["rh_frac", "wind_speed_ms", "wind_dir_deg", "temp_c"]
+        diagnostics["rows_missing_met"] += int(joined[met_cols].isna().any(axis=1).sum())
+        diagnostics["rows_warmup"] += min(int(max(LAGS)), len(joined))
         base = pd.concat([one, joined], axis=1)
         X = design_matrix(base, "pm25")
         targets = {h: base["pm25"].shift(-h) for h in HORIZONS}
-        diagnostics["rows_missing_met"] += int((~X.notna().all(axis=1)).sum())
         try:
             folds = walk_forward_slices(len(X), folds=GraphForecaster.FOLDS)
         except Exception:  # noqa: BLE001 - one thin node must not kill the run
@@ -363,6 +397,7 @@ def forecast_all(products: Mapping[str, NodeProduct],
                     "interval_lo": lo,
                     "interval_hi": hi,
                     "fold": fi,
+                    "node": nid,
                 })
                 frames[h].append(frame)
         if node_scored:
@@ -385,6 +420,21 @@ def forecast_all(products: Mapping[str, NodeProduct],
                     fold_row["fold"] = int(fi)
                     fold_rows.append(fold_row)
             row["folds"] = fold_rows
+            # Per-node skill is the distribution the pooled number hides: a
+            # mean skill of zero can be every node at zero, or half the grid
+            # winning and half losing, and only the count says which. Bias is
+            # the other half of that - a model can be right on average and
+            # wrong in sign, and RMSE alone cannot tell a reader that.
+            node_skills = []
+            for _, sub in combined.groupby("node"):
+                scored = evaluate_forecast({h: sub})
+                if scored:
+                    node_skills.append(scored[0].skill_vs_persistence)
+            row["nodes_beating_persistence"] = int(
+                sum(1 for s in node_skills if s > 0))
+            row["nodes_compared"] = len(node_skills)
+            row["bias"] = round(float(
+                (combined["actual"] - combined["predicted"]).mean()), 4)
             row["diagnostics"] = diagnostics
             rows.append(row)
     return rows

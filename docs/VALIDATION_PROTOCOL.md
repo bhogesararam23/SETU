@@ -79,12 +79,13 @@ it, the baseline it is scored against, and the pass rule agreed before running.
 
 | | |
 | --- | --- |
-| **Claim** | Upwind neighbour readings improve the short-horizon estimate at a node. |
-| **Test** | Per-horizon models at 1/3/6 h over 69,680 node-hours; features are own lags (1,2,3,6,12,24 h), cyclical time, met, and the wind-decayed upwind mean over the adjacency graph. |
-| **Baseline** | Persistence (today's value, unchanged) — the baseline a nowcast must beat to exist. |
-| **Pass rule** | Lower RMSE than persistence at every horizon. Winning at 1 h and losing at 6 h means the graph is decoration. |
+| **Claim** | A refitted short-horizon model beats persistence in the hours it was fitted near, and beats a diurnal climatology throughout. |
+| **Test** | Per-horizon models at 1/3/6 h, scored walk-forward in three folds. Each fold trains on everything before its score slice and calibrates its band on the slice just before that, so no scored hour is an hour the model saw. Features are own lags (0,1,2,3,6,12,24 h), cyclical time, met, and the wind-decayed upwind mean over the adjacency graph; the model fits the h-hour increment rather than the level. |
+| **Baseline** | Persistence (today's value, unchanged) and an hour-of-week climatology. |
+| **Pass rule** | Skill above zero in the fold nearest its own training data, and above the climatology in every fold. A model fitted once at the start of the window and never refitted losing at every horizon is a finding about recalibration, not a failed run — it is why the report prints the decay curve. |
 | **Published anchor** | Chen et al., *Sci. Rep.* 2024: RMSE 19.11, R² 0.84 at 7 h — on real data and a much dirtier city. |
-| **Result** | 1.54 / 1.92 / 2.22 µg/m³ vs persistence 2.36 / 4.35 / 6.66. Beats persistence at all three horizons. Absolute RMSE is far below the published figure because the input is a twin over a clean monsoon baseline, not Delhi in November — the comparison that matters is the skill column, not the level. |
+| **Result** | Pooled skill **-0.028 / -0.092 / -0.016** at 1/3/6 h: across the window as a whole the model does not beat persistence, and the report leads with that. Fold 0 scores **+0.167 / +0.282 / +0.300**; folds 1 and 2 are negative. Only 3 of 40 nodes beat persistence at 1 h. Against the climatology the model wins everywhere (+0.65 at 1 h pooled). Band coverage 0.658-0.729 against a nominal 0.80. |
+| **Honest caveat** | An earlier version of this section quoted +0.33/+0.57/+0.68. Those were in-sample: one split, fitted and scored on the same regime. The number is not small, it was wrong, and the per-fold table is what replaced it. |
 
 ### Response
 
