@@ -341,6 +341,43 @@ def test_every_suppression_carries_the_gate_that_refused_it(engine):
     assert s["suppressed_by_gate"]["persistence"] > 0
 
 
+def test_the_ledger_groups_every_refusal_under_the_gate_that_made_it(engine):
+    """The console renders the ledger, so the totals have to reconcile here.
+
+    Gate totals that do not add up to the suppression count are the failure mode
+    this guards: a row silently dropped during aggregation reads on screen as a
+    gate that cost less than it did.
+    """
+    feed(engine, 6)
+    feed(engine, 3, start=6, posterior=SEC)
+    summary = engine.summary()
+    ledger = summary["ledger"]
+    assert [g["gate"] for g in ledger] == sorted(g["gate"] for g in ledger)
+    assert sum(g["total"] for g in ledger) == summary["suppressed"]
+    assert all(g["name"] and g["description"] for g in ledger)
+    for group in ledger:
+        assert sum(r["count"] for r in group["reasons"]) == group["total"]
+        assert group["retryable"] <= group["total"]
+        assert len({r["reason"] for r in group["reasons"]}) == len(group["reasons"])
+
+
+def test_a_clock_gate_says_how_long_and_a_source_gate_says_new_information(engine):
+    """Only the gates with a clock belong in a follow-up list."""
+    feed(engine, 6)
+    feed(engine, 3, start=6, posterior=SEC)
+    ledger = {g["name"]: g for g in engine.summary()["ledger"]}
+    dwell = next(r for r in ledger["dwell"]["reasons"] if r["reason"] == "dwell")
+    assert dwell["retryable"] is True
+    assert 0 < dwell["retry_within_minutes"] <= engine.gates.min_dwell_minutes
+    assert dwell["last_retry_at"] is not None
+
+    source = next(r for r in ledger["source"]["reasons"]
+                  if r["reason"] == "refused_by_evidence")
+    assert source["retryable"] is False
+    assert source["retry_within_minutes"] is None
+    assert source["last_retry_at"] is None
+
+
 def test_a_dwell_refusal_says_when_the_lever_can_go_again(engine):
     feed(engine, 6)
     dwell = [s for s in engine.suppressed if s.reason == "dwell"]

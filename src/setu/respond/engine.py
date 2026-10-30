@@ -467,6 +467,68 @@ class ResponseEngine:
                             len(before), len(after), control_pct)
 
     # -- reporting ---------------------------------------------------------
+    def ledger(self) -> list[dict[str, object]]:
+        """The refusals, grouped by the gate that made them.
+
+        `suppressed_by_reason` says what each refusal was called; an operator
+        needs which stage of the chain cost the trigger, and when that answer
+        could change. Both are aggregates over the whole run rather than over
+        the displayed sample, because a ledger read off a sample is a claim
+        about the sample.
+
+        `retry_within_minutes` is the delay the gate itself set, not a promise
+        about when the air will be clean: one window for the time-based gates,
+        the dwell expiry for a lever already out. The median is reported because
+        dwell expiry varies with when the last pass went out, and a single
+        example would read as a fixed schedule.
+        """
+        labels = {n: (name, why) for n, name, why in GATE_CHAIN}
+        groups: dict[int, dict[str, object]] = {}
+        for item in self.suppressed:
+            gate = item.gate if item.gate in labels else 0
+            name, why = labels.get(gate, ("ungated",
+                                          "refused before the chain was entered"))
+            group = groups.setdefault(gate, {
+                "gate": gate, "name": name, "description": why,
+                "total": 0, "retryable": 0, "reasons": {},
+            })
+            group["total"] = int(group["total"]) + 1
+            row = group["reasons"].setdefault(item.reason, {
+                "reason": item.reason, "count": 0, "delays": [],
+                "last_at": None, "last_retry_at": None,
+            })
+            row["count"] = int(row["count"]) + 1
+            if item.retry_at is not None:
+                group["retryable"] = int(group["retryable"]) + 1
+                minutes = (item.retry_at - item.at).total_seconds() / 60.0
+                row["delays"].append(minutes)
+                # The latest refusal is the one an operator can still act on;
+                # an earlier one is history by the time the page is read.
+                if row["last_at"] is None or item.at >= row["last_at"]:
+                    row["last_at"] = item.at
+                    row["last_retry_at"] = item.retry_at
+
+        out: list[dict[str, object]] = []
+        for gate in sorted(groups):
+            group = groups[gate]
+            reasons = sorted(group["reasons"].values(),
+                             key=lambda r: (-int(r["count"]), r["reason"]))
+            rows = []
+            for row in reasons:
+                delays = row.pop("delays")
+                rows.append({
+                    **row,
+                    "retryable": bool(delays),
+                    "retry_within_minutes": (
+                        round(float(np.median(delays)), 1) if delays else None),
+                    "last_at": (str(row["last_at"])
+                                if row["last_at"] is not None else None),
+                    "last_retry_at": (str(row["last_retry_at"])
+                                      if row["last_retry_at"] is not None else None),
+                })
+            out.append({**group, "reasons": rows})
+        return out
+
     def summary(self) -> dict[str, object]:
         reasons: dict[str, int] = {}
         for s in self.suppressed:
@@ -479,6 +541,9 @@ class ResponseEngine:
         by_lever: dict[str, int] = {}
         for a in self.actions:
             by_lever[a.lever] = by_lever.get(a.lever, 0) + 1
+        by_owner: dict[str, int] = {}
+        for a in self.actions:
+            by_owner[a.owner] = by_owner.get(a.owner, 0) + 1
         retry = [s for s in self.suppressed if s.retry_at is not None]
         return {
             "actions": len(self.actions),
@@ -490,6 +555,12 @@ class ResponseEngine:
             #: dispatcher which rows of the ledger to come back to.
             "reschedulable": len(retry),
             "actions_by_lever": by_lever,
+            #: Who has to say yes. The policy table assigns an owner per lever
+            #: precisely so the queue can be filtered by the desk that reads it.
+            "actions_by_owner": by_owner,
+            #: The full-run ledger, so the console does not have to rebuild
+            #: gate totals out of a 400-row sample and call the result a total.
+            "ledger": self.ledger(),
             "max_priority": round(max((a.priority for a in self.actions),
                                       default=0.0), 4),
             "dosing_scales": {k: round(v, 3) for k, v in
