@@ -98,8 +98,14 @@ def test_evidence_pack_is_served_for_a_real_dispatch(client, committed):
     assert "sigma" in json.dumps(pack).lower()
 
     index = client.get("/api/evidence").json()
-    assert index["count"] >= len(queue)
-    assert first in {p["id"] for p in index["packs"]}
+    packs = {p["id"] for p in index["packs"]}
+    assert first in packs
+    # Packs follow the head of the queue, not the whole of it: the run writes
+    # them for the page it publishes, and asserting otherwise would make the
+    # payload grow with the dispatch count.
+    assert len(queue) > 25, "the queue is not deep enough to filter"
+    assert all(row["id"] in packs for row in queue[:25]), \
+        "a row in the console's default view has no pack to open"
     for row in index["packs"][:5]:
         assert client.get(f"/api/evidence/{row['id']}").status_code == 200
 

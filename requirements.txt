@@ -6,6 +6,10 @@ requests>=2.31,<3
 PyYAML>=6.0,<7
 fastapi>=0.110,<1
 uvicorn>=0.27,<1
+# Imported directly by the typed API layer. Both arrive with FastAPI, but a
+# direct import is a declared dependency rather than a lucky transitive one.
+pydantic>=2.6,<3
+starlette>=0.37
 
 # Numerics. numpy/scikit-learn carry their own BLAS; no CUDA assumption.
 numpy>=1.26
