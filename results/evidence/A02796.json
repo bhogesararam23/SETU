@@ -1,0 +1,33 @@
+{
+  "id": "A02796",
+  "node": "rajkot-22",
+  "source": "road_dust",
+  "lever": "vacuum_sweeping",
+  "owner": "ward_sanitation_supervisor",
+  "dispatched_at": "2026-08-09 18:00:00",
+  "recheck_at": "2026-08-09 19:52:30",
+  "trigger_value": 33.08872621746657,
+  "trigger_sigma": 2.3986809431086376,
+  "threshold": 15.0,
+  "evidence": {
+    "posterior": {
+      "construction": 0.0,
+      "open_burning": 0.0,
+      "road_dust": 0.965,
+      "secondary": 0.0,
+      "traffic_combustion": 0.0,
+      "mixed": 0.0003,
+      "regional_background": 0.0346
+    },
+    "coarse_ratio": 0.624,
+    "wind_from_deg": 280.0,
+    "lever_effect_pct": 24.0,
+    "lever_half_life_min": 150.0,
+    "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
+    "gate_min_posterior": 0.45,
+    "provenance": "digital-twin"
+  },
+  "requires_signoff": true,
+  "priority": 0.2793,
+  "rank": 54
+}

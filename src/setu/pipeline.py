@@ -534,7 +534,7 @@ def _schedule_stats(engine) -> dict:
     }
 
 
-def _queue_head(engine, limit: int = 25) -> dict:
+def _queue_head(engine, limit: int = 200) -> dict:
     """The head of the priority-ordered queue, as the run ranked it.
 
     The console used to read arrivals, which is the audit order and not the
@@ -545,6 +545,11 @@ def _queue_head(engine, limit: int = 25) -> dict:
     Fleet capacity is not modelled here. `rank_actions` is an ordering;
     deferring a row needs a crew count the prototype does not have, so the
     payload says that rather than inventing a schedule and calling it one.
+
+    The head is 200 rows rather than a handful because the console filters it by
+    owner and lever, and a filter over 25 rows is a lottery: the four desks a
+    dispatch can go to would each see whichever few rows happened to make the
+    cut. 200 is a page, not the queue, and the payload carries the total.
     """
     ranked = rank_actions(engine.actions)
     return {

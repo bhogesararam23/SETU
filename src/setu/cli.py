@@ -278,7 +278,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--nodes", type=int)
     p.add_argument("--threshold", type=float,
                    help="override the action level in ug/m3 (default: NAAQS 24h)")
-    p.add_argument("--evidence", type=int, default=25,
+    p.add_argument("--evidence", type=int, default=60,
                    help="how many dispatches to write evidence packs for")
     p.set_defaults(func=_cmd_run)
 

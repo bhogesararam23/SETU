@@ -199,13 +199,67 @@ def test_dashboard_html_is_served_and_its_assets_resolve(client):
 
 
 def test_dashboard_calls_only_endpoints_that_exist(client):
+    """Every /api reference in the script, whether quoted or interpolated.
+
+    The old version only scanned double-quoted literals, so a template literal
+    could call any endpoint at all and still pass. Matching the reference itself
+    and allowing a parameterised route to satisfy a prefix keeps the guard real
+    without forcing the script to string-concatenate.
+    """
     js = client.get("/static/app.js").text
     served = {route.path for route in client.app.routes}
-    for path in set(re.findall(r'"/api/[a-z_/{}]*"', js)):
-        path = path.strip('"').replace("{action}", "")
-        if "{" in path:
-            continue
-        assert path in served or path.startswith("/api/actions/"), f"dashboard calls {path}"
+    refs = set(re.findall(r"/api/[a-z_/]*", js))
+    assert refs, "the dashboard calls no API at all"
+    for ref in refs:
+        ok = any(path == ref or (path.startswith(ref) and "{" in path)
+                 for path in served)
+        assert ok, f"dashboard calls {ref}, which no route serves"
+
+
+def test_dashboard_script_only_touches_elements_the_page_has(client):
+    """A rename in the markup leaves `$("id")` returning null, and the first
+    property access throws away the whole render. That failure mode is silent in
+    HTTP terms - the page still returns 200 - so it is checked here."""
+    html = client.get("/").text
+    js = client.get("/static/app.js").text
+    ids = set(re.findall(r'id="([^"]+)"', html))
+    used = set(re.findall(r'\$\("([^"]+)"\)', js))
+    assert used, "the script looks up no elements by id"
+    assert used <= ids, f"script queries missing ids: {sorted(used - ids)}"
+
+
+def test_every_tab_has_a_panel_and_every_panel_has_a_tab(client):
+    html = client.get("/").text
+    tabs = set(re.findall(r'class="tab"[^>]*data-panel="([a-z]+)"', html))
+    panels = set(re.findall(r'id="panel-([a-z]+)"', html))
+    assert tabs == panels, f"tabs {tabs} do not match panels {panels}"
+    assert len(tabs) >= 5, "the console lost a section"
+    assert 'role="tablist"' in html
+
+
+def test_the_console_loads_nothing_from_outside_this_origin(client):
+    """The console runs on a municipal machine behind a firewall, and the CSP
+    forbids off-origin loads. A CDN tag would be a blank page under it."""
+    html = client.get("/").text
+    assert "http://" not in html and "https://" not in html
+    assert not re.search(r"<script(?![^>]*src=)", html), "inline script breaks the CSP"
+    assert not re.search(r"\son[a-z]+=", html), "inline handler breaks the CSP"
+
+    js = client.get("/static/app.js").text
+    assert "innerHTML" in js
+    assert "eval(" not in js and "new Function" not in js
+
+
+def test_the_console_has_the_accessibility_scaffolding_it_claims(client):
+    html = client.get("/").text
+    assert 'href="#main"' in html, "no skip link"
+    assert 'aria-live="polite"' in html
+    assert 'aria-label="Console sections"' in html
+    tables = re.findall(r"<table\b", html)
+    captions = re.findall(r"<caption", html)
+    assert len(tables) == len(captions), (
+        f"{len(tables)} tables, {len(captions)} captions: a table without a "
+        "caption is a wall of numbers to a screen reader")
 
 
 def test_missing_results_is_a_503_with_an_actionable_message(client, tmp_path,
