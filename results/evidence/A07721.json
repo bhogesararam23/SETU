@@ -1,0 +1,33 @@
+{
+  "id": "A07721",
+  "node": "rajkot-00",
+  "source": "traffic_combustion",
+  "lever": "signal_retiming",
+  "owner": "traffic_police_its_operator",
+  "dispatched_at": "2026-08-24 21:00:00",
+  "recheck_at": null,
+  "trigger_value": 40.401300636226274,
+  "trigger_sigma": 3.9198914899708996,
+  "threshold": 15.0,
+  "evidence": {
+    "posterior": {
+      "construction": 0.0,
+      "open_burning": 0.0,
+      "road_dust": 0.0001,
+      "secondary": 0.0004,
+      "traffic_combustion": 0.9378,
+      "mixed": 0.0617,
+      "regional_background": 0.0
+    },
+    "coarse_ratio": 0.561,
+    "wind_from_deg": 245.0,
+    "lever_effect_pct": 21.0,
+    "lever_half_life_min": null,
+    "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+    "gate_min_posterior": 0.45,
+    "provenance": "digital-twin"
+  },
+  "requires_signoff": true,
+  "priority": 0.3335,
+  "rank": 9
+}

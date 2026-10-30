@@ -56,7 +56,7 @@
         "url": "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=22.3039&longitude=70.7962&hourly=pm2_5,pm10,carbon_monoxide,nitrogen_dioxide,ozone,sulphur_dioxide,dust,aerosol_optical_depth&past_days=92&forecast_days=0&timezone=Asia/Kolkata&wind_speed_unit=ms",
         "fetched_at_iso": "2026-10-10T21:41:02Z",
         "from_cache": true,
-        "age_seconds": 1647005.8,
+        "age_seconds": 1650034.3,
         "stale": true
       },
       {
@@ -64,7 +64,7 @@
         "url": "https://api.open-meteo.com/v1/forecast?latitude=22.3039&longitude=70.7962&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,surface_pressure,boundary_layer_height&past_days=92&forecast_days=0&timezone=Asia/Kolkata&wind_speed_unit=ms",
         "fetched_at_iso": "2026-10-10T21:41:04Z",
         "from_cache": true,
-        "age_seconds": 1647004.6,
+        "age_seconds": 1650033.1,
         "stale": true
       }
     ],
@@ -102,8 +102,8 @@
       "directory": "data/fixtures/upstream",
       "entries": 8,
       "bytes": 668133,
-      "oldest_age_hours": 457.9,
-      "newest_age_hours": 456.8,
+      "oldest_age_hours": 458.7,
+      "newest_age_hours": 457.6,
       "offline_only": true
     },
     "sources": {
@@ -3170,6 +3170,107 @@
       "patrol_open_burning": 925,
       "site_notice": 337
     },
+    "actions_by_owner": {
+      "ward_sanitation_supervisor": 4907,
+      "traffic_police_its_operator": 1878,
+      "solid_waste_and_fire_branch": 925,
+      "municipal_enforcement_cell": 337
+    },
+    "ledger": [
+      {
+        "gate": 1,
+        "name": "source",
+        "description": "source identified with enough posterior to act on",
+        "total": 25717,
+        "retryable": 0,
+        "reasons": [
+          {
+            "reason": "unknown_source",
+            "count": 19204,
+            "last_at": null,
+            "last_retry_at": null,
+            "retryable": false,
+            "retry_within_minutes": null
+          },
+          {
+            "reason": "refused_by_evidence",
+            "count": 6513,
+            "last_at": null,
+            "last_retry_at": null,
+            "retryable": false,
+            "retry_within_minutes": null
+          }
+        ]
+      },
+      {
+        "gate": 2,
+        "name": "persistence",
+        "description": "the breach survives the persistence window",
+        "total": 3029,
+        "retryable": 3029,
+        "reasons": [
+          {
+            "reason": "persistence",
+            "count": 3029,
+            "last_at": "2026-10-10 23:00:00",
+            "last_retry_at": "2026-10-11 00:00:00",
+            "retryable": true,
+            "retry_within_minutes": 60.0
+          }
+        ]
+      },
+      {
+        "gate": 3,
+        "name": "uncertainty",
+        "description": "the calibrated interval excludes the threshold",
+        "total": 1999,
+        "retryable": 1999,
+        "reasons": [
+          {
+            "reason": "uncertainty",
+            "count": 1999,
+            "last_at": "2026-10-10 22:00:00",
+            "last_retry_at": "2026-10-10 23:00:00",
+            "retryable": true,
+            "retry_within_minutes": 60.0
+          }
+        ]
+      },
+      {
+        "gate": 4,
+        "name": "dwell",
+        "description": "the lever's re-dose interval has elapsed",
+        "total": 5502,
+        "retryable": 5502,
+        "reasons": [
+          {
+            "reason": "dwell",
+            "count": 5502,
+            "last_at": "2026-10-10 23:00:00",
+            "last_retry_at": "2026-10-10 23:30:00",
+            "retryable": true,
+            "retry_within_minutes": 30.0
+          }
+        ]
+      },
+      {
+        "gate": 5,
+        "name": "hysteresis",
+        "description": "the zone is armed",
+        "total": 26586,
+        "retryable": 0,
+        "reasons": [
+          {
+            "reason": "not_armed",
+            "count": 26586,
+            "last_at": null,
+            "last_retry_at": null,
+            "retryable": false,
+            "retry_within_minutes": null
+          }
+        ]
+      }
+    ],
     "max_priority": 0.3795,
     "dosing_scales": {},
     "zones_tracked": 40,
@@ -3180,6 +3281,837 @@
       "peak_hour": "2026-08-25 19:00:00",
       "mean_per_active_hour": 10.64,
       "dispatches_sharing_an_hour": 7291
+    },
+    "queue": {
+      "total": 8047,
+      "capacity_modelled": false,
+      "items": [
+        {
+          "id": "A07923",
+          "node": "rajkot-01",
+          "source": "road_dust",
+          "lever": "vacuum_sweeping",
+          "owner": "ward_sanitation_supervisor",
+          "dispatched_at": "2026-08-25 15:00:00",
+          "recheck_at": "2026-08-25 16:52:30",
+          "trigger_value": 39.79783615163203,
+          "trigger_sigma": 3.8379616364670333,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0011,
+              "open_burning": 0.0,
+              "road_dust": 0.9565,
+              "secondary": 0.0,
+              "traffic_combustion": 0.0,
+              "mixed": 0.0,
+              "regional_background": 0.0424
+            },
+            "coarse_ratio": 0.695,
+            "wind_from_deg": 258.0,
+            "lever_effect_pct": 24.0,
+            "lever_half_life_min": 150.0,
+            "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3795,
+          "rank": 1
+        },
+        {
+          "id": "A07924",
+          "node": "rajkot-01",
+          "source": "road_dust",
+          "lever": "vacuum_sweeping",
+          "owner": "ward_sanitation_supervisor",
+          "dispatched_at": "2026-08-25 17:00:00",
+          "recheck_at": "2026-08-25 18:52:30",
+          "trigger_value": 41.29707745275048,
+          "trigger_sigma": 3.9203331418079697,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0,
+              "road_dust": 0.9019,
+              "secondary": 0.0,
+              "traffic_combustion": 0.0,
+              "mixed": 0.0,
+              "regional_background": 0.0981
+            },
+            "coarse_ratio": 0.682,
+            "wind_from_deg": 273.0,
+            "lever_effect_pct": 24.0,
+            "lever_half_life_min": 150.0,
+            "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3795,
+          "rank": 2
+        },
+        {
+          "id": "A07729",
+          "node": "rajkot-00",
+          "source": "traffic_combustion",
+          "lever": "signal_retiming",
+          "owner": "traffic_police_its_operator",
+          "dispatched_at": "2026-08-25 19:00:00",
+          "recheck_at": null,
+          "trigger_value": 40.401300636226274,
+          "trigger_sigma": 3.923039738380534,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0,
+              "road_dust": 0.0084,
+              "secondary": 0.0,
+              "traffic_combustion": 0.9861,
+              "mixed": 0.0045,
+              "regional_background": 0.0009
+            },
+            "coarse_ratio": 0.615,
+            "wind_from_deg": 297.0,
+            "lever_effect_pct": 21.0,
+            "lever_half_life_min": null,
+            "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3507,
+          "rank": 3
+        },
+        {
+          "id": "A07720",
+          "node": "rajkot-00",
+          "source": "traffic_combustion",
+          "lever": "signal_retiming",
+          "owner": "traffic_police_its_operator",
+          "dispatched_at": "2026-08-24 19:00:00",
+          "recheck_at": null,
+          "trigger_value": 41.447497305232716,
+          "trigger_sigma": 3.929878808667286,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0001,
+              "road_dust": 0.021,
+              "secondary": 0.0001,
+              "traffic_combustion": 0.9451,
+              "mixed": 0.0225,
+              "regional_background": 0.0112
+            },
+            "coarse_ratio": 0.604,
+            "wind_from_deg": 286.0,
+            "lever_effect_pct": 21.0,
+            "lever_half_life_min": null,
+            "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3499,
+          "rank": 4
+        },
+        {
+          "id": "A07915",
+          "node": "rajkot-01",
+          "source": "road_dust",
+          "lever": "vacuum_sweeping",
+          "owner": "ward_sanitation_supervisor",
+          "dispatched_at": "2026-08-24 17:00:00",
+          "recheck_at": "2026-08-24 18:52:30",
+          "trigger_value": 41.07916745793993,
+          "trigger_sigma": 3.9153289894471808,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0,
+              "road_dust": 0.8313,
+              "secondary": 0.0,
+              "traffic_combustion": 0.0001,
+              "mixed": 0.0,
+              "regional_background": 0.1687
+            },
+            "coarse_ratio": 0.659,
+            "wind_from_deg": 272.0,
+            "lever_effect_pct": 24.0,
+            "lever_half_life_min": 150.0,
+            "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3469,
+          "rank": 5
+        },
+        {
+          "id": "A07916",
+          "node": "rajkot-01",
+          "source": "traffic_combustion",
+          "lever": "signal_retiming",
+          "owner": "traffic_police_its_operator",
+          "dispatched_at": "2026-08-24 20:00:00",
+          "recheck_at": null,
+          "trigger_value": 40.92987991394069,
+          "trigger_sigma": 3.9012852869279717,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0001,
+              "road_dust": 0.0074,
+              "secondary": 0.0003,
+              "traffic_combustion": 0.9526,
+              "mixed": 0.0393,
+              "regional_background": 0.0003
+            },
+            "coarse_ratio": 0.527,
+            "wind_from_deg": 261.0,
+            "lever_effect_pct": 21.0,
+            "lever_half_life_min": null,
+            "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3458,
+          "rank": 6
+        },
+        {
+          "id": "A07936",
+          "node": "rajkot-01",
+          "source": "road_dust",
+          "lever": "vacuum_sweeping",
+          "owner": "ward_sanitation_supervisor",
+          "dispatched_at": "2026-08-26 17:00:00",
+          "recheck_at": "2026-08-26 18:52:30",
+          "trigger_value": 41.34483807028406,
+          "trigger_sigma": 3.9203046679228564,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0,
+              "road_dust": 0.8163,
+              "secondary": 0.0,
+              "traffic_combustion": 0.0,
+              "mixed": 0.0,
+              "regional_background": 0.1837
+            },
+            "coarse_ratio": 0.667,
+            "wind_from_deg": 285.0,
+            "lever_effect_pct": 24.0,
+            "lever_half_life_min": 150.0,
+            "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3441,
+          "rank": 7
+        },
+        {
+          "id": "A07985",
+          "node": "rajkot-01",
+          "source": "traffic_combustion",
+          "lever": "signal_retiming",
+          "owner": "traffic_police_its_operator",
+          "dispatched_at": "2026-09-21 23:00:00",
+          "recheck_at": null,
+          "trigger_value": 39.18232091088613,
+          "trigger_sigma": 3.8018633856975783,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0,
+              "road_dust": 0.0,
+              "secondary": 0.0,
+              "traffic_combustion": 1.0,
+              "mixed": 0.0,
+              "regional_background": 0.0
+            },
+            "coarse_ratio": 0.047,
+            "wind_from_deg": 259.0,
+            "lever_effect_pct": 21.0,
+            "lever_half_life_min": null,
+            "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3386,
+          "rank": 8
+        },
+        {
+          "id": "A07721",
+          "node": "rajkot-00",
+          "source": "traffic_combustion",
+          "lever": "signal_retiming",
+          "owner": "traffic_police_its_operator",
+          "dispatched_at": "2026-08-24 21:00:00",
+          "recheck_at": null,
+          "trigger_value": 40.401300636226274,
+          "trigger_sigma": 3.9198914899708996,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0,
+              "road_dust": 0.0001,
+              "secondary": 0.0004,
+              "traffic_combustion": 0.9378,
+              "mixed": 0.0617,
+              "regional_background": 0.0
+            },
+            "coarse_ratio": 0.561,
+            "wind_from_deg": 245.0,
+            "lever_effect_pct": 21.0,
+            "lever_half_life_min": null,
+            "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3335,
+          "rank": 9
+        },
+        {
+          "id": "A07727",
+          "node": "rajkot-00",
+          "source": "road_dust",
+          "lever": "vacuum_sweeping",
+          "owner": "ward_sanitation_supervisor",
+          "dispatched_at": "2026-08-25 15:00:00",
+          "recheck_at": "2026-08-25 16:52:30",
+          "trigger_value": 37.22112924079524,
+          "trigger_sigma": 3.5444125673119027,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0001,
+              "open_burning": 0.0,
+              "road_dust": 0.9294,
+              "secondary": 0.0,
+              "traffic_combustion": 0.0,
+              "mixed": 0.0,
+              "regional_background": 0.0705
+            },
+            "coarse_ratio": 0.734,
+            "wind_from_deg": 258.0,
+            "lever_effect_pct": 24.0,
+            "lever_half_life_min": 150.0,
+            "lever_source": "AIRUSE LIFE11 ENV/ES/584 Report 15 (2016)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3304,
+          "rank": 10
+        },
+        {
+          "id": "A08020",
+          "node": "rajkot-01",
+          "source": "traffic_combustion",
+          "lever": "signal_retiming",
+          "owner": "traffic_police_its_operator",
+          "dispatched_at": "2026-09-30 20:00:00",
+          "recheck_at": null,
+          "trigger_value": 37.72037868650243,
+          "trigger_sigma": 3.88042462369864,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0,
+              "road_dust": 0.0,
+              "secondary": 0.0,
+              "traffic_combustion": 1.0,
+              "mixed": 0.0,
+              "regional_background": 0.0
+            },
+            "coarse_ratio": 0.289,
+            "wind_from_deg": 233.0,
+            "lever_effect_pct": 21.0,
+            "lever_half_life_min": null,
+            "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3181,
+          "rank": 11
+        },
+        {
+          "id": "A07917",
+          "node": "rajkot-01",
+          "source": "traffic_combustion",
+          "lever": "signal_retiming",
+          "owner": "traffic_police_its_operator",
+          "dispatched_at": "2026-08-24 22:00:00",
+          "recheck_at": null,
+          "trigger_value": 40.09211526108803,
+          "trigger_sigma": 3.9019397884924967,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0,
+              "road_dust": 0.0014,
+              "secondary": 0.0008,
+              "traffic_combustion": 0.8962,
+              "mixed": 0.1016,
+              "regional_background": 0.0001
+            },
+            "coarse_ratio": 0.503,
+            "wind_from_deg": 235.0,
+            "lever_effect_pct": 21.0,
+            "lever_half_life_min": null,
+            "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3148,
+          "rank": 12
+        },
+        {
+          "id": "A07989",
+          "node": "rajkot-01",
+          "source": "traffic_combustion",
+          "lever": "signal_retiming",
+          "owner": "traffic_police_its_operator",
+          "dispatched_at": "2026-09-22 21:00:00",
+          "recheck_at": null,
+          "trigger_value": 37.40713204205705,
+          "trigger_sigma": 3.880473047756718,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0,
+              "road_dust": 0.0,
+              "secondary": 0.0,
+              "traffic_combustion": 1.0,
+              "mixed": 0.0,
+              "regional_background": 0.0
+            },
+            "coarse_ratio": 0.094,
+            "wind_from_deg": 220.0,
+            "lever_effect_pct": 21.0,
+            "lever_half_life_min": null,
+            "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3137,
+          "rank": 13
+        },
+        {
+          "id": "A07741",
+          "node": "rajkot-00",
+          "source": "traffic_combustion",
+          "lever": "signal_retiming",
+          "owner": "traffic_police_its_operator",
+          "dispatched_at": "2026-08-26 19:00:00",
+          "recheck_at": null,
+          "trigger_value": 40.401300636226274,
+          "trigger_sigma": 3.7683262296720437,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0,
+              "road_dust": 0.0846,
+              "secondary": 0.0,
+              "traffic_combustion": 0.8755,
+              "mixed": 0.0281,
+              "regional_background": 0.0118
+            },
+            "coarse_ratio": 0.609,
+            "wind_from_deg": 273.0,
+            "lever_effect_pct": 21.0,
+            "lever_half_life_min": null,
+            "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3113,
+          "rank": 14
+        },
+        {
+          "id": "A08035",
+          "node": "rajkot-01",
+          "source": "traffic_combustion",
+          "lever": "signal_retiming",
+          "owner": "traffic_police_its_operator",
+          "dispatched_at": "2026-10-06 21:00:00",
+          "recheck_at": null,
+          "trigger_value": 37.096430973091124,
+          "trigger_sigma": 3.8804555317292366,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0,
+              "road_dust": 0.0,
+              "secondary": 0.0,
+              "traffic_combustion": 0.9995,
+              "mixed": 0.0005,
+              "regional_background": 0.0
+            },
+            "coarse_ratio": 0.279,
+            "wind_from_deg": 300.0,
+            "lever_effect_pct": 21.0,
+            "lever_half_life_min": null,
+            "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3092,
+          "rank": 15
+        },
+        {
+          "id": "A07990",
+          "node": "rajkot-01",
+          "source": "traffic_combustion",
+          "lever": "signal_retiming",
+          "owner": "traffic_police_its_operator",
+          "dispatched_at": "2026-09-22 23:00:00",
+          "recheck_at": null,
+          "trigger_value": 37.04517021320593,
+          "trigger_sigma": 3.880461523185468,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0,
+              "road_dust": 0.0,
+              "secondary": 0.0,
+              "traffic_combustion": 0.9999,
+              "mixed": 0.0001,
+              "regional_background": 0.0
+            },
+            "coarse_ratio": 0.117,
+            "wind_from_deg": 230.0,
+            "lever_effect_pct": 21.0,
+            "lever_half_life_min": null,
+            "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3086,
+          "rank": 16
+        },
+        {
+          "id": "A08037",
+          "node": "rajkot-01",
+          "source": "traffic_combustion",
+          "lever": "signal_retiming",
+          "owner": "traffic_police_its_operator",
+          "dispatched_at": "2026-10-07 19:00:00",
+          "recheck_at": null,
+          "trigger_value": 37.04630832132346,
+          "trigger_sigma": 3.8834925346248372,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0,
+              "road_dust": 0.0,
+              "secondary": 0.0,
+              "traffic_combustion": 0.9999,
+              "mixed": 0.0001,
+              "regional_background": 0.0
+            },
+            "coarse_ratio": 0.336,
+            "wind_from_deg": 15.0,
+            "lever_effect_pct": 21.0,
+            "lever_half_life_min": null,
+            "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3086,
+          "rank": 17
+        },
+        {
+          "id": "A07986",
+          "node": "rajkot-01",
+          "source": "traffic_combustion",
+          "lever": "signal_retiming",
+          "owner": "traffic_police_its_operator",
+          "dispatched_at": "2026-09-22 01:00:00",
+          "recheck_at": null,
+          "trigger_value": 37.01069139034144,
+          "trigger_sigma": 3.880427380887623,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.002,
+              "road_dust": 0.0,
+              "secondary": 0.0,
+              "traffic_combustion": 0.998,
+              "mixed": 0.0,
+              "regional_background": 0.0
+            },
+            "coarse_ratio": 0.06,
+            "wind_from_deg": 277.0,
+            "lever_effect_pct": 21.0,
+            "lever_half_life_min": null,
+            "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3075,
+          "rank": 18
+        },
+        {
+          "id": "A07825",
+          "node": "rajkot-00",
+          "source": "traffic_combustion",
+          "lever": "signal_retiming",
+          "owner": "traffic_police_its_operator",
+          "dispatched_at": "2026-10-07 19:00:00",
+          "recheck_at": null,
+          "trigger_value": 36.82774255516141,
+          "trigger_sigma": 3.3683603904267994,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0,
+              "road_dust": 0.0,
+              "secondary": 0.0,
+              "traffic_combustion": 1.0,
+              "mixed": 0.0,
+              "regional_background": 0.0
+            },
+            "coarse_ratio": 0.379,
+            "wind_from_deg": 15.0,
+            "lever_effect_pct": 21.0,
+            "lever_half_life_min": null,
+            "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3056,
+          "rank": 19
+        },
+        {
+          "id": "A07815",
+          "node": "rajkot-00",
+          "source": "traffic_combustion",
+          "lever": "signal_retiming",
+          "owner": "traffic_police_its_operator",
+          "dispatched_at": "2026-10-01 20:00:00",
+          "recheck_at": null,
+          "trigger_value": 36.80422513269406,
+          "trigger_sigma": 3.3069710643023797,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0,
+              "road_dust": 0.0,
+              "secondary": 0.0,
+              "traffic_combustion": 1.0,
+              "mixed": 0.0,
+              "regional_background": 0.0
+            },
+            "coarse_ratio": 0.26,
+            "wind_from_deg": 280.0,
+            "lever_effect_pct": 21.0,
+            "lever_half_life_min": null,
+            "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3053,
+          "rank": 20
+        },
+        {
+          "id": "A07823",
+          "node": "rajkot-00",
+          "source": "traffic_combustion",
+          "lever": "signal_retiming",
+          "owner": "traffic_police_its_operator",
+          "dispatched_at": "2026-10-06 21:00:00",
+          "recheck_at": null,
+          "trigger_value": 36.808226698507156,
+          "trigger_sigma": 3.4443296044301954,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0,
+              "road_dust": 0.0,
+              "secondary": 0.0,
+              "traffic_combustion": 0.9999,
+              "mixed": 0.0001,
+              "regional_background": 0.0
+            },
+            "coarse_ratio": 0.319,
+            "wind_from_deg": 300.0,
+            "lever_effect_pct": 21.0,
+            "lever_half_life_min": null,
+            "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3053,
+          "rank": 21
+        },
+        {
+          "id": "A07826",
+          "node": "rajkot-00",
+          "source": "traffic_combustion",
+          "lever": "signal_retiming",
+          "owner": "traffic_police_its_operator",
+          "dispatched_at": "2026-10-07 21:00:00",
+          "recheck_at": null,
+          "trigger_value": 36.805093568399826,
+          "trigger_sigma": 3.460281928398877,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0,
+              "road_dust": 0.0,
+              "secondary": 0.0,
+              "traffic_combustion": 1.0,
+              "mixed": 0.0,
+              "regional_background": 0.0
+            },
+            "coarse_ratio": 0.355,
+            "wind_from_deg": 26.0,
+            "lever_effect_pct": 21.0,
+            "lever_half_life_min": null,
+            "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3053,
+          "rank": 22
+        },
+        {
+          "id": "A07827",
+          "node": "rajkot-00",
+          "source": "traffic_combustion",
+          "lever": "signal_retiming",
+          "owner": "traffic_police_its_operator",
+          "dispatched_at": "2026-10-07 23:00:00",
+          "recheck_at": null,
+          "trigger_value": 36.80960983839522,
+          "trigger_sigma": 3.4446029183894975,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0,
+              "road_dust": 0.0,
+              "secondary": 0.0,
+              "traffic_combustion": 1.0,
+              "mixed": 0.0,
+              "regional_background": 0.0
+            },
+            "coarse_ratio": 0.378,
+            "wind_from_deg": 67.0,
+            "lever_effect_pct": 21.0,
+            "lever_half_life_min": null,
+            "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3053,
+          "rank": 23
+        },
+        {
+          "id": "A07816",
+          "node": "rajkot-00",
+          "source": "traffic_combustion",
+          "lever": "signal_retiming",
+          "owner": "traffic_police_its_operator",
+          "dispatched_at": "2026-10-01 22:00:00",
+          "recheck_at": null,
+          "trigger_value": 36.79838304485498,
+          "trigger_sigma": 3.3652552219251826,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0,
+              "road_dust": 0.0,
+              "secondary": 0.0,
+              "traffic_combustion": 1.0,
+              "mixed": 0.0,
+              "regional_background": 0.0
+            },
+            "coarse_ratio": 0.258,
+            "wind_from_deg": 290.0,
+            "lever_effect_pct": 21.0,
+            "lever_half_life_min": null,
+            "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3052,
+          "rank": 24
+        },
+        {
+          "id": "A07806",
+          "node": "rajkot-00",
+          "source": "traffic_combustion",
+          "lever": "signal_retiming",
+          "owner": "traffic_police_its_operator",
+          "dispatched_at": "2026-09-29 21:00:00",
+          "recheck_at": null,
+          "trigger_value": 36.79838304485498,
+          "trigger_sigma": 3.3647180326892427,
+          "threshold": 15.0,
+          "evidence": {
+            "posterior": {
+              "construction": 0.0,
+              "open_burning": 0.0002,
+              "road_dust": 0.0,
+              "secondary": 0.0,
+              "traffic_combustion": 0.9998,
+              "mixed": 0.0,
+              "regional_background": 0.0
+            },
+            "coarse_ratio": 0.333,
+            "wind_from_deg": 330.0,
+            "lever_effect_pct": 21.0,
+            "lever_half_life_min": null,
+            "lever_source": "Ang et al., AAAI-13 Fall Symposium (SURTRAC)",
+            "gate_min_posterior": 0.45,
+            "provenance": "digital-twin"
+          },
+          "requires_signoff": true,
+          "priority": 0.3051,
+          "rank": 25
+        }
+      ]
     },
     "effects": {
       "attempted": 40,

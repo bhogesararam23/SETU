@@ -104,14 +104,21 @@ def test_evidence_limit_is_honoured_and_negative_is_empty(tmp_path):
 
 
 def test_committed_evidence_matches_the_committed_dispatches(committed_summary):
-    """Every published pack must be a dispatch the report actually claims."""
+    """Every published pack must be a dispatch the payload actually publishes.
+
+    The queue head counts as published: packs are written for the rows the
+    console links to, so the claim is against both lists, not just the sample.
+    """
     path = Path(report.RESULTS_DIR) / "validation.json"
     if not path.exists():
         pytest.skip("no committed run output in this checkout")
     data = json.loads(path.read_text(encoding="utf-8"))
     claimed = {a["id"] for a in data.get("sample_actions", []) if "id" in a}
+    claimed |= {a["id"] for a in data.get("response", {}).get("queue", {})
+                .get("items", []) if "id" in a}
     published = {p.stem for p in (report.RESULTS_DIR / "evidence").glob("*.json")}
     assert published <= claimed, f"orphan packs: {sorted(published - claimed)}"
+    assert published, "no packs published at all"
 
 
 def test_the_published_report_matches_the_committed_run(committed_summary):

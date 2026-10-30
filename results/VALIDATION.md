@@ -178,16 +178,28 @@ Diagnostics: 40 of 40 nodes scored across 120 walk-forward fits, 0 nodes and 0 f
 - Zones tracked: 40
 - Human sign-off required: True
 
-| Gate | Reason | Count |
-| --- | --- | --- |
-| hysteresis | not_armed | 26586 |
-| source | unknown_source | 19204 |
-| source | refused_by_evidence | 6513 |
-| dwell | dwell | 5502 |
-| persistence | persistence | 3029 |
-| uncertainty | uncertainty | 1999 |
+| Gate | Reason | Count | Next opportunity |
+| --- | --- | --- | --- |
+| source (1) | unknown_source | 19204 | new information |
+| source (1) | refused_by_evidence | 6513 | new information |
+| persistence (2) | persistence | 3029 | +60 min |
+| uncertainty (3) | uncertainty | 1999 | +60 min |
+| dwell (4) | dwell | 5502 | +30 min |
+| hysteresis (5) | not_armed | 26586 | new information |
 
-The suppression ledger is the point of this table. A dispatcher who receives the same alert forty times in a night stops reading it, so the gates have to be auditable for what they cost as well as what they prevented. Rows are grouped by the gate that refused, not by the prose it refused with, so what each gate cost is a sum rather than a reading exercise.
+The suppression ledger is the point of this table. A dispatcher who receives the same alert forty times in a night stops reading it, so the gates have to be auditable for what they cost as well as what they prevented. Rows are grouped by the gate that refused, not by the prose it refused with, so what each gate cost is a sum rather than a reading exercise. The last column is the gate's own clock, not a forecast: a dwell expiry or the next window is when the refusal could change, and 'new information' is the honest answer for a source gate no clock will re-open.
+
+The queue below is the head of the **8,047** dispatches ordered by expected effect, which is the order an officer should work them; the engine appends in time order, and that order is the audit trail, not the shift plan.
+
+| # | Node | Lever | Owner | Priority | Trigger |
+| --- | --- | --- | --- | --- | --- |
+| 1 | rajkot-01 | vacuum_sweeping | ward_sanitation_supervisor | 0.3795 | 39.8 ± 3.8 |
+| 2 | rajkot-01 | vacuum_sweeping | ward_sanitation_supervisor | 0.3795 | 41.3 ± 3.9 |
+| 3 | rajkot-00 | signal_retiming | traffic_police_its_operator | 0.3507 | 40.4 ± 3.9 |
+| 4 | rajkot-00 | signal_retiming | traffic_police_its_operator | 0.3499 | 41.4 ± 3.9 |
+| 5 | rajkot-01 | vacuum_sweeping | ward_sanitation_supervisor | 0.3469 | 41.1 ± 3.9 |
+
+Fleet capacity is not modelled, so this is an ordering rather than a schedule: the prototype has no crew count to defer against, and a deferral invented here would read as one.
 
 10,530 of those are refusals a clock will clear - a dwell that expires, or the next window. Each carries the time it could next pass, which is what separates a follow-up list from an archive. The rest need new information, and no amount of waiting changes them.
 

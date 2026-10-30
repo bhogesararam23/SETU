@@ -86,12 +86,22 @@ def test_evidence_pack_is_served_for_a_real_dispatch(client, committed):
     # response, so that is where the endpoint and this test both read it.
     ids = [a["id"] for a in committed.get("sample_actions", []) if "id" in a]
     assert ids, "the committed run dispatched nothing"
-    first = ids[0]
+    # A pack is written for every row of the queue head, so that is the id an
+    # officer can actually click. The sample also gets packs, but the queue is
+    # the panel that links to them.
+    queue = committed["response"]["queue"]["items"]
+    first = queue[0]["id"]
     r = client.get(f"/api/actions/{first}")
     assert r.status_code == 200
     pack = r.json()
     assert pack["id"] == first
     assert "sigma" in json.dumps(pack).lower()
+
+    index = client.get("/api/evidence").json()
+    assert index["count"] >= len(queue)
+    assert first in {p["id"] for p in index["packs"]}
+    for row in index["packs"][:5]:
+        assert client.get(f"/api/evidence/{row['id']}").status_code == 200
 
 
 def test_unknown_or_traversing_action_id_is_a_404_not_a_crash(client):
