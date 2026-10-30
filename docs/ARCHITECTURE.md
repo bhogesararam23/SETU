@@ -120,6 +120,46 @@ emits a "what this run can and cannot support" table before any accuracy number,
 and the equal-cost section reports the configuration where triggering gains
 nothing alongside the one where it gains something.
 
+## The operator console
+
+The console is a read-only view over one run, and the API is thin on purpose.
+Every number it serves is copied from `results/validation.json`,
+`results/evidence/`, or `configs/`. Nothing is recomputed per request. That is
+the property the interface exists for: if the console and the report disagree,
+the disagreement is a schema bug in one payload rather than two implementations
+of a metric.
+
+**The API computes views, not numbers.** Ordering the queue, grouping refusals
+by gate, filtering by desk and deriving run age are transformations over the
+payload. They are allowed to be wrong in a way a reader can check against the
+JSON; a recomputed skill score would not be.
+
+**Failure is a rendered state.** A missing run is 503 `results_missing`, a
+corrupt payload is 500 `results_corrupt`, a bad query is 422
+`invalid_request`, and an absent pack is 404 `evidence_not_found`. Each carries
+a `code` and a `hint`, because the console has a panel for each one. An empty
+city and an unreachable service must not look the same, which is why the run chip
+reads "run unavailable" rather than going blank.
+
+**The payload dates itself.** `results/validation.json` has a file time, not a
+reading time. `/api/run` reports it as `generated_at` with `age_hours`, and the
+console marks anything past seven days stale. There is no live feed behind this,
+and a header that omits the window's date would let a monsoon window pass for
+this morning.
+
+**The console is one origin.** No framework, no build step, no CDN, no font
+fetch. Vanilla JavaScript and inline SVG mean the strict `default-src 'self'`
+policy is real rather than aspirational, and the page still works on a machine
+with no internet but the loopback service. The generated `/docs` page is the one
+exception, and its policy is loosened explicitly for the Swagger CDN rather than
+globally.
+
+**Nothing here dispatches.** The API exposes no mutation of any kind. Every
+action row carries `requires_signoff: true` from the config, and the evidence
+pack says that acting on it is a decision taken outside the service. This is a
+design constraint, not a missing feature: a browser that can send a crew is a
+browser that can send one by accident.
+
 ## Failure posture
 
 | Failure | Detection | Behaviour |

@@ -140,7 +140,39 @@ legal basis, a site notice needs a register of construction sites to reference,
 and a patrol route needs someone to receive it. The action table is portable; the
 permissions are not.
 
-## 9. Small things a reviewer will notice
+## 9. The console is a research instrument, not a deployable service
+
+Milestone 8 turned the operator dashboard into a decision-support console. What
+it did **not** do is make it safe to expose, and the gap is listed here rather
+than left for a reader to discover.
+
+- **There is no authentication or authorization.** The service binds
+  `127.0.0.1` by default, is read-only, holds no personal data, and has no
+  endpoint that dispatches anything. That is a loopback research console, not a
+  multi-user system. Before it is reachable from a municipal network it needs a
+  reverse proxy that authenticates and authorizes the desk reading it, and the
+  `owner` field is a printed desk name rather than an access-control list.
+- **There is no real-time feed, and the console does not pretend there is.** It
+  renders a completed `python -m setu run`. The header shows the run's file time,
+  `/api/run` reports its age, and past seven days the console marks the payload
+  stale. Live monitoring is not implemented because there is no hardware feeding
+  it; a poller over a static file would be theatre.
+- **Fleet capacity is not modelled.** The queue is an ordering by expected
+  ug/m3 shaved per pass, not a schedule. `dispatch_plan` can defer rows against a
+  capacity, but the prototype has no crew count, so the queue payload reports
+  `capacity_modelled: false` and the console says so instead of inventing a
+  deferral time.
+- **The queue is a page, not the whole backlog.** The run keeps the 200 highest
+  priority dispatches out of 8,047, and the filters apply inside that page. The
+  displayed totals distinguish the page from the run for exactly this reason.
+- **Evidence packs cover the queue head (60), not every dispatch.** Writing
+  8,047 JSON files into a git repository is a poor trade; the rows without a pack
+  say `no pack` rather than pretending otherwise.
+- The console renders numbers; it never recomputes them. Skill, coverage,
+  calibration and attribution are read from the run payload and are subject to
+  every limitation above.
+
+## 10. Small things a reviewer will notice
 
 - `client.setInsecure()` in the firmware. Cert pinning is a real TODO.
 - `readBme()` and `readWind()` are stubs.

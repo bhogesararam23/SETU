@@ -159,7 +159,34 @@ is a real finding about a clean season, and it is reported as such.
 responses used by the reproducible validation run. It allows the full pipeline
 to be re-run without credentials or network access.
 
-The local operator console runs at `http://127.0.0.1:8090` by default.
+## The operator console
+
+`python -m setu serve` starts a read-only console and JSON API on
+`http://127.0.0.1:8090`; the generated API reference is at `/docs`. It reads a
+completed run, so `python -m setu run` has to have happened first - and the header
+says how old that run is, because there is no live feed behind this.
+
+Six sections, each a view over the same `results/validation.json`:
+
+| Section | What it answers |
+| --- | --- |
+| Overview | What, where, which source, what was done - the top of the queue, plus the lattice and the validation rows that failed |
+| Queue | Dispatches ordered by expected effect, with owner, priority, trigger interval, recheck time and sign-off; filterable by desk and lever |
+| Gates | What the suppression chain refused, grouped by gate, with the clock that clears each reason (one window, or the dwell expiry) |
+| Forecast | Skill against persistence by horizon with every walk-forward fold drawn behind it, interval coverage against nominal, and the node-hours the fit could not use |
+| Evidence | The JSON record behind a dispatch: posterior, coarse fraction, lever citation, trigger interval |
+| Data | The window that was read, its gaps and duplicates, the cache, the upstreams, and what this run cannot support |
+
+The console never recomputes a metric: ordering, grouping and filtering happen in
+the browser, skill and counts do not. Nothing in the API mutates state - there is
+no dispatch endpoint, by design, and every action row says so. Failures are
+rendered rather than swallowed: a missing run, a corrupt payload, an unreachable
+service and a query the API rejects each get their own message and a retry that
+reloads only the affected panel.
+
+It binds loopback and has no authentication. That is a research console, and it
+is listed in `docs/LIMITATIONS.md` as the first thing to add before it is exposed
+to a municipal network.
 
 ## What is real and what is not
 

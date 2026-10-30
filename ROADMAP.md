@@ -5,13 +5,16 @@
 This document tracks the systematic improvement of SETU from its current state (commit `e395d31`) into a robust, reproducible, scientifically credible open-source air quality research project.
 
 **Current Status:**
-- 290 tests, all passing, none skipped. The one skip the suite used to report
+- 313 tests, all passing, none skipped. The one skip the suite used to report
   was a guard that had switched itself off; it fails now instead
 - Full pipeline runs end-to-end
 - Digital twin validates algorithms against known ground truth
 - Calibration, attribution, forecasting, response and I/O layers all functional
-- Milestones 4 (attribution), 5 (forecast), 6 (response) and 7 (data pipeline)
-  complete; milestone 5's GNN task is deferred with its reason written down
+- Milestones 4 (attribution), 5 (forecast), 6 (response), 7 (data pipeline) and
+  8 (operator console) complete; milestone 5's GNN task is deferred with its
+  reason written down, and so is milestone 8's authentication task
+- The console is a read-only view over one run: queue, gate ledger, forecast
+  trajectory, evidence packs and provenance, with the run's age on the header
 - Documentation is comprehensive and honest about limitations, and now quotes
   the walk-forward forecast numbers rather than the in-sample ones
 
@@ -152,15 +155,41 @@ This document tracks the systematic improvement of SETU from its current state (
       upstream with status and latency, and refuses to pretend in offline mode
 
 ### Milestone 8: Dashboard & API Improvements
-**Goal:** Production-ready operator interface
+**Goal:** An operator interface that can be read against the report
+
+#### What it had to fix
+
+The API served the display sample, so the queue was in arrival order, the ledger
+was a bar chart of reason strings with no gate behind it, the forecast had no
+trajectory, and a missing run and a corrupt one both arrived as a dict-shaped
+shrug. The console could not answer "which gate is costing me the trigger" or
+"when could this pass" from what it was given.
 
 #### Tasks:
-- [ ] Fix dashboard display issues
-- [ ] Add real-time monitoring capabilities
-- [ ] Improve evidence pack generation and display
-- [ ] Add API documentation
-- [ ] Implement proper error handling in API
-- [ ] Add authentication and authorization (for production)
+- [x] Fix dashboard display issues - rebuilt as six sections. The queue is the
+      ranked head with priority, trigger interval, owner and sign-off; the gate
+      ledger is grouped by stage with the clock that clears each reason; the
+      forecast is a trajectory with every fold drawn behind the pooled line;
+      evidence opens the pack a row references; data is the provenance, gaps and
+      cache. Loading, empty, stale, unavailable and rejected-request states each
+      have a rendering rather than a stack trace
+- [x] ~~Add real-time monitoring capabilities~~ - not done, and deliberately:
+      there is no live feed to monitor until hardware exists. What landed instead
+      is the honest substitute - `/api/run` dates the payload, reports its age,
+      and the console marks a run stale past seven days
+- [x] Improve evidence pack generation and display - packs follow the head of the
+      queue, so every row in the default view has one, and `/api/evidence` lists
+      what exists instead of the console guessing
+- [x] Add API documentation - typed response schemas for every endpoint, tags,
+      summaries, and generated `/docs`; null means "not measured" throughout
+- [x] Implement proper error handling in API - `results_missing` 503,
+      `results_corrupt` 500, `invalid_request` 422, `evidence_not_found` 404,
+      each with a `code` and a `hint`, plus strict same-origin CSP and no-store
+- [ ] Add authentication and authorization (for production) - deferred with its
+      reason recorded in `docs/LIMITATIONS.md`: the service is loopback-only,
+      read-only, holds no personal data and has no mutation endpoint. Exposing it
+      needs a reverse proxy that authenticates the desk reading it, and that is a
+      deployment decision rather than a prototype one
 
 ### Milestone 9: Firmware Readiness
 **Goal:** Firmware ready for actual deployment
@@ -214,13 +243,13 @@ This document tracks the systematic improvement of SETU from its current state (
 ### Done
 - Test reliability, and a CI workflow
 - Calibration, attribution, forecast, response and data-pipeline milestones
+- The operator console, its typed API, and the queue/ledger payloads behind it
 
-### Next (Commits onward)
-1. Dashboard/API improvements (milestone 8)
-2. Firmware completion (milestone 9)
-3. Regression gates, coverage tracking, release automation (milestone 10)
+### Next
+1. Coverage tracking and a documented build (milestone 10)
+2. Reproducibility checks and sensitivity analysis (milestone 12)
+3. Firmware completion (milestone 9) - blocked on hardware that does not exist
 4. Documentation sweep across all five docs (milestone 11)
-5. Reproducibility checks and sensitivity analysis (milestone 12)
 
 ---
 
@@ -235,7 +264,7 @@ Each commit should:
 
 ## Testing Strategy
 
-- All commits must pass the full test suite (290 collected)
+- All commits must pass the full test suite (313 collected)
 - New features must include tests
 - Bug fixes must include regression tests
 - Performance improvements must maintain accuracy
@@ -263,11 +292,15 @@ Before accepting a commit:
 | 5 Forecast | done, except the GNN task, deferred with its reason recorded |
 | 6 Response | done |
 | 7 Data pipeline | done, except CPCB reachability, which is a network fact rather than a code gap |
-| 8-12 | not started |
+| 8 Operator console | done, except authentication, which is a deployment requirement rather than a prototype one |
+| 9-12 | not started |
 
 ## Next Steps
 
-Milestone 8: the operator interface. The API serves the payload the report
-renders, but the dashboard has no queue view for the priority-ordered
-dispatches, no view of the suppression ledger by gate, and no way to show a
-forecast trajectory - all of which the layers behind it now produce.
+Milestone 9 (firmware) is blocked on hardware that does not exist: sensor
+integration, certificate pinning and OTA all need a flashed board to be more
+than source code, so its honest state is "written, untested" and no amount of
+work in this repository changes that. What is verifiable here is milestone 10's
+remaining CI work - coverage reporting and a documented build - and milestone
+12's reproducibility checks, which compare a fresh run against the committed
+payload. Those come next.
