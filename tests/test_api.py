@@ -220,3 +220,199 @@ def test_health_endpoint_states_what_is_present(client):
     body = client.get("/api/health").json()
     assert body["ok"] is True
     assert body["results_present"] is True
+    assert body["status"] in {"ok", "stale"}
+
+
+# -- the queue --------------------------------------------------------------
+def test_queue_is_ordered_by_priority_and_counts_the_whole_run(client, committed):
+    body = client.get("/api/queue?limit=10").json()
+    published = committed["response"]["queue"]
+    assert body["total"] == published["total"] == committed["response"]["actions"]
+    assert body["returned"] == 10
+    assert body["capacity_modelled"] is False, (
+        "a capacity this prototype does not have must not be implied")
+    ranks = [row["rank"] for row in body["items"]]
+    priorities = [row["priority"] for row in body["items"]]
+    assert ranks == list(range(1, 11))
+    assert priorities == sorted(priorities, reverse=True)
+    assert body["items"][0]["priority"] == max(
+        row["priority"] for row in published["items"])
+    # A queue row is a dispatch, not a refusal.
+    assert all(row["id"] for row in body["items"])
+    assert all(row["requires_signoff"] for row in body["items"])
+
+
+def test_queue_counts_every_dispatch_it_is_a_head_of(client):
+    """`total` is the run, `matched` is the filter, `returned` is the page.
+    Conflating them makes 8,047 dispatches look like a backlog of 25."""
+    body = client.get("/api/queue?limit=5").json()
+    assert body["total"] > body["returned"]
+    assert body["matched"] >= body["returned"]
+    owners = body["owners"]
+    assert sum(owners.values()) == body["total"]
+
+
+def test_queue_filters_narrow_without_losing_the_total(client):
+    body = client.get("/api/queue?owner=traffic_police_its_operator").json()
+    assert body["items"], "the filter matched nothing; the owner name drifted"
+    assert all(row["owner"] == "traffic_police_its_operator" for row in body["items"])
+    assert body["total"] == client.get("/api/queue").json()["total"]
+    assert body["matched"] <= body["total"]
+
+    lever = client.get("/api/queue?lever=vacuum_sweeping").json()
+    assert all(row["lever"] == "vacuum_sweeping" for row in lever["items"])
+
+    top = client.get("/api/queue?limit=1").json()["items"][0]["priority"]
+    pruned = client.get(f"/api/queue?min_priority={top}").json()
+    assert all(row["priority"] >= top for row in pruned["items"])
+
+
+def test_queue_can_be_read_in_audit_order(client):
+    worked = client.get("/api/queue?limit=10").json()["items"]
+    audit = client.get("/api/queue?order=time&limit=10").json()["items"]
+    stamps = [row["dispatched_at"] for row in audit]
+    assert stamps == sorted(stamps), "audit order must be chronological"
+    assert [r["id"] for r in audit] != [r["id"] for r in worked], \
+        "the audit order is the same list as the working order"
+
+
+# -- the ledger -------------------------------------------------------------
+def test_ledger_totals_reconcile_with_the_run(client, committed):
+    body = client.get("/api/ledger").json()
+    assert body["total"] == committed["response"]["suppressed"]
+    assert sum(g["total"] for g in body["gates"]) == body["total"]
+    for gate in body["gates"]:
+        assert gate["name"]
+        assert sum(r["count"] for r in gate["reasons"]) == gate["total"]
+        assert all(r["explanation"] for r in gate["reasons"]), \
+            "a refusal with no explanation is a silent gate"
+    assert [g["gate"] for g in body["gates"]] == sorted(g["gate"] for g in body["gates"])
+    assert body["reschedulable"] == committed["response"]["reschedulable"]
+    assert sum(g["retryable"] for g in body["gates"]) == body["reschedulable"]
+
+
+def test_ledger_says_which_gates_have_a_clock_and_which_need_information(client):
+    gates = {g["name"]: g for g in client.get("/api/ledger").json()["gates"]}
+    dwell = next(r for r in gates["dwell"]["reasons"] if r["reason"] == "dwell")
+    assert dwell["retryable"] is True
+    assert 0 < dwell["retry_within_minutes"] <= 90
+    assert dwell["last_retry_at"]
+
+    source = next(r for r in gates["source"]["reasons"]
+                  if r["reason"] == "refused_by_evidence")
+    assert source["retryable"] is False
+    assert source["retry_within_minutes"] is None
+    assert source["last_retry_at"] is None
+
+
+# -- forecast, attribution, data quality ------------------------------------
+def test_forecast_serves_the_trajectory_and_the_folds(client, committed):
+    body = client.get("/api/forecast").json()
+    rows = body["horizons"]
+    assert [r["horizon_h"] for r in rows] == [1, 3, 6]
+    for row in rows:
+        assert row["folds"], f"horizon {row['horizon_h']} served without its folds"
+        assert len(row["folds"]) >= 2
+    assert body["nominal_coverage"] == 0.80
+    # The committed run does not beat persistence pooled; the claim must say so
+    # rather than quote the fold that does.
+    pooled = [r["skill_vs_persistence"] for r in rows]
+    assert body["beats_persistence_pooled"] is (all(v > 0 for v in pooled))
+    if not body["beats_persistence_pooled"]:
+        assert "does not beat persistence" in body["claim"]
+    assert "coverage" in body["claim"]
+    assert body["diagnostics"]["nodes_total"] >= 1
+
+
+def test_attribution_serves_importance_and_calibration(client, committed):
+    body = client.get("/api/attribution").json()
+    assert body["classes"] == committed["attribution"]["classes"]
+    assert len(body["feature_importance"]) >= 5
+    assert all({"feature", "importance_mean"} <= set(f)
+               for f in body["feature_importance"])
+    assert body["confidence_calibration"]["ece"] is not None
+    assert body["sign_check"]["coarse_count_ratio_on_dust"] is not None
+
+
+def test_quality_panel_matches_the_provenance_it_describes(client, committed):
+    body = client.get("/api/quality").json()
+    prov = committed["provenance"]
+    assert body["fingerprint"] == prov["fingerprint"]
+    assert body["window"] == prov["window"]
+    assert body["background"], "a run with no background source is not traceable"
+    assert body["offline"] is True, "the tests run offline against the snapshot"
+    assert body["ok"] == prov["quality"]["ok"]
+
+
+def test_run_status_dates_the_payload_instead_of_implying_it_is_live(client):
+    body = client.get("/api/run").json()
+    assert body["results_present"] is True
+    assert body["status"] in {"ok", "stale"}
+    assert body["generated_at"] and body["generated_at"].endswith("+00:00")
+    assert body["age_hours"] >= 0
+    assert body["stale_after_hours"] > 0
+    assert body["stale"] is (body["status"] == "stale")
+    assert body["evidence_packs"] == client.get("/api/evidence").json()["count"]
+    assert body["offline"] is True
+
+
+# -- errors -----------------------------------------------------------------
+def test_unknown_evidence_is_a_documented_404(client):
+    r = client.get("/api/evidence/NOPE9999")
+    assert r.status_code == 404
+    body = r.json()
+    assert body["code"] == "evidence_not_found"
+    assert body["hint"], "a 404 the console renders needs a next step"
+
+
+def test_a_bad_query_is_a_422_with_a_code_not_a_traceback(client):
+    for url in ("/api/queue?limit=abc", "/api/queue?order=sideways",
+                "/api/queue?min_priority=-1"):
+        r = client.get(url)
+        assert r.status_code == 422, url
+        assert r.json()["code"] == "invalid_request"
+
+
+def test_an_unknown_route_still_gets_the_error_shape(client):
+    r = client.get("/api/nope")
+    assert r.status_code == 404
+    assert r.json()["code"] == "not_found"
+
+
+def test_a_corrupt_payload_is_reported_as_corrupt(client, tmp_path, monkeypatch):
+    (tmp_path / "validation.json").write_text("{not json", encoding="utf-8")
+    monkeypatch.setattr(server, "RESULTS_DIR", tmp_path)
+    r = client.get("/api/run")
+    assert r.status_code == 200
+    assert r.json()["status"] == "corrupt"
+    assert r.json()["notes"]
+    assert client.get("/api/validation").status_code == 500
+    assert client.get("/api/health").json()["ok"] is False
+
+
+# -- headers and docs -------------------------------------------------------
+def test_the_console_is_served_with_a_restrictive_csp(client):
+    for path in ("/", "/api/queue"):
+        headers = client.get(path).headers
+        csp = headers["content-security-policy"]
+        assert "default-src 'self'" in csp
+        assert "frame-ancestors 'none'" in csp
+        assert "script-src 'self'" in csp and "unsafe-eval" not in csp
+        assert headers["x-content-type-options"] == "nosniff"
+        assert headers["x-frame-options"] == "DENY"
+    assert "cdn.jsdelivr.net" not in client.get("/").headers[
+        "content-security-policy"], \
+        "the dashboard load must not be loosened for the docs page"
+
+
+def test_the_generated_docs_are_served_and_can_load_their_assets(client):
+    r = client.get("/docs")
+    assert r.status_code == 200
+    assert "cdn.jsdelivr.net" in r.headers["content-security-policy"]
+    schema = client.get("/openapi.json").json()
+    for path in ("/api/queue", "/api/ledger", "/api/forecast",
+                 "/api/attribution", "/api/quality", "/api/run",
+                 "/api/evidence"):
+        assert path in schema["paths"], f"{path} missing from the API docs"
+    assert "QueueResponse" in schema["components"]["schemas"]
+    assert "LedgerGate" in schema["components"]["schemas"]
