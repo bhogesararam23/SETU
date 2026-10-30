@@ -78,6 +78,41 @@ def test_spread_keeps_both_kinds_in_the_head_of_the_sample():
     assert {r["node"] for r in dispatches} == {"a", "b"}
 
 
+def action(node, priority, ident):
+    import pandas as pd
+
+    from setu.respond import Action
+
+    return Action(
+        id=ident, node=node, source="road_dust", lever="vacuum_sweeping",
+        owner="ward_sanitation_supervisor",
+        dispatched_at=pd.Timestamp("2026-07-01 08:00"), recheck_at=None,
+        trigger_value=70.0, trigger_sigma=2.0, threshold=15.0,
+        evidence={"posterior": {"road_dust": 0.9}}, requires_signoff=True,
+        priority=priority)
+
+
+def test_queue_head_is_the_top_of_the_ranking_and_counts_everything():
+    """The console shows a head, but it must say how much it is a head of.
+
+    `total` is the run's dispatch count, not the length of the served list: a
+    queue labelled "25" when the run produced 8,047 dispatches understates the
+    backlog by two orders of magnitude.
+    """
+    from setu.pipeline import _queue_head
+
+    class Stub:
+        actions = [action("a", 0.1, "A1"), action("b", 0.9, "A2"),
+                   action("c", 0.5, "A3")]
+
+    head = _queue_head(Stub(), limit=2)
+    assert head["total"] == 3
+    assert head["capacity_modelled"] is False
+    assert [row["rank"] for row in head["items"]] == [1, 2]
+    assert [row["id"] for row in head["items"]] == ["A2", "A3"]
+    assert head["items"][0]["priority"] >= head["items"][1]["priority"]
+
+
 def test_committed_sample_spans_the_grid():
     """Data check: the payload the console renders, not just the helper."""
     import json

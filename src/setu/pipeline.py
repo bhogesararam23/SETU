@@ -39,7 +39,7 @@ from .io.cache import HttpCache
 from .io.sources import probe as probe_sources
 from .metrics import score
 from .respond import (Observation, ResponseEngine, dispatch_plan,
-                      roster_vs_triggered)
+                     rank_actions, roster_vs_triggered)
 
 
 @dataclasses.dataclass
@@ -534,6 +534,27 @@ def _schedule_stats(engine) -> dict:
     }
 
 
+def _queue_head(engine, limit: int = 25) -> dict:
+    """The head of the priority-ordered queue, as the run ranked it.
+
+    The console used to read arrivals, which is the audit order and not the
+    working order: dispatches pile up in a handful of evening hours, and only
+    the first few fit in a shift. Keeping the head of the full ranking means the
+    queue an officer sees is the one the engine produced, not a sample of it.
+
+    Fleet capacity is not modelled here. `rank_actions` is an ordering;
+    deferring a row needs a crew count the prototype does not have, so the
+    payload says that rather than inventing a schedule and calling it one.
+    """
+    ranked = rank_actions(engine.actions)
+    return {
+        "total": len(ranked),
+        "capacity_modelled": False,
+        "items": [{**a.as_dict(), "rank": i}
+                  for i, a in enumerate(ranked[:limit], 1)],
+    }
+
+
 def run_response(products: Mapping[str, NodeProduct], threshold: float,
                  per_kind: int = 12) -> tuple[dict, list[dict]]:
     """Drive the engine over every node; return the summary plus a sample.
@@ -575,6 +596,7 @@ def run_response(products: Mapping[str, NodeProduct], threshold: float,
     sample = [r for key in sorted(kept) for r in kept[key]]
     summary = engine.summary()
     summary["schedule"] = _schedule_stats(engine)
+    summary["queue"] = _queue_head(engine)
     summary["effects"] = _effect_audit(engine, products)
     return summary, _spread(sample, 400)
 

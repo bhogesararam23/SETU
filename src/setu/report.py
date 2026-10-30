@@ -533,25 +533,55 @@ def to_markdown(result, directory: Path = RESULTS_DIR) -> Path:
     add(f"- Zones tracked: {r['zones_tracked']}")
     add(f"- Human sign-off required: {r['signoff_required']}")
     add("")
-    add("| Gate | Reason | Count |")
-    add("| --- | --- | --- |")
-    gate_names = {1: "source", 2: "persistence", 3: "uncertainty",
-                  4: "dwell", 5: "hysteresis"}
-    gate_of = {"unknown_source": 1, "low_posterior": 1, "no_lever": 1,
-               "refused_by_evidence": 1, "persistence": 2, "uncertainty": 3,
-               "dwell": 4, "not_armed": 5}
-    for reason, count in sorted(r["suppressed_by_reason"].items(),
-                                key=lambda kv: (-kv[1], kv[0])):
-        gate = gate_names.get(gate_of.get(reason, 0), "-")
-        add(f"| {gate} | {reason} | {count} |")
+    add("| Gate | Reason | Count | Next opportunity |")
+    add("| --- | --- | --- | --- |")
+    ledger = r.get("ledger") or []
+    if ledger:
+        for group in ledger:
+            for row in group["reasons"]:
+                when = (f"+{row['retry_within_minutes']:.0f} min"
+                        if row.get("retryable") else "new information")
+                add(f"| {group['name']} ({group['gate']}) | {row['reason']} | "
+                    f"{row['count']} | {when} |")
+    else:
+        gate_names = {1: "source", 2: "persistence", 3: "uncertainty",
+                      4: "dwell", 5: "hysteresis"}
+        gate_of = {"unknown_source": 1, "low_posterior": 1, "no_lever": 1,
+                   "refused_by_evidence": 1, "persistence": 2,
+                   "uncertainty": 3, "dwell": 4, "not_armed": 5}
+        for reason, count in sorted(r["suppressed_by_reason"].items(),
+                                    key=lambda kv: (-kv[1], kv[0])):
+            gate = gate_names.get(gate_of.get(reason, 0), "-")
+            add(f"| {gate} | {reason} | {count} | - |")
     add("")
     add("The suppression ledger is the point of this table. A dispatcher who "
         "receives the same alert forty times in a night stops reading it, so the "
         "gates have to be auditable for what they cost as well as what they "
         "prevented. Rows are grouped by the gate that refused, not by the prose "
         "it refused with, so what each gate cost is a sum rather than a reading "
-        "exercise.")
+        "exercise. The last column is the gate's own clock, not a forecast: a "
+        "dwell expiry or the next window is when the refusal could change, and "
+        "'new information' is the honest answer for a source gate no clock "
+        "will re-open.")
     add("")
+    queue = r.get("queue") or {}
+    if queue.get("items"):
+        add(f"The queue below is the head of the **{queue['total']:,}** "
+            "dispatches ordered by expected effect, which is the order an "
+            "officer should work them; the engine appends in time order, and "
+            "that order is the audit trail, not the shift plan.")
+        add("")
+        add("| # | Node | Lever | Owner | Priority | Trigger |")
+        add("| --- | --- | --- | --- | --- | --- |")
+        for row in queue["items"][:5]:
+            add(f"| {row['rank']} | {row['node']} | {row['lever']} | "
+                f"{row['owner']} | {row['priority']} | "
+                f"{row['trigger_value']:.1f} ± {row['trigger_sigma']:.1f} |")
+        add("")
+        add("Fleet capacity is not modelled, so this is an ordering rather than "
+            "a schedule: the prototype has no crew count to defer against, and "
+            "a deferral invented here would read as one.")
+        add("")
     if r.get("reschedulable"):
         add(f"{r['reschedulable']:,} of those are refusals a clock will clear - a "
             "dwell that expires, or the next window. Each carries the time it "

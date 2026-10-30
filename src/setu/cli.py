@@ -82,9 +82,16 @@ def _cmd_run(args: argparse.Namespace) -> int:
     json_path = to_json(result)
     md_path = to_markdown(result)
     # sample_actions mixes dispatches with suppressions; only a dispatch has an
-    # evidence pack. Suppressions are in validation.json under the ledger.
-    dispatches = [a for a in result.response.get("sample_actions", [])
-                  if "id" in a]
+    # evidence pack. The queue comes first because it is the order the console
+    # shows: a pack should exist for every row an officer can click.
+    dispatches: list[dict] = []
+    seen: set[str] = set()
+    head = result.response.get("queue", {}).get("items", [])
+    for row in list(head) + list(result.response.get("sample_actions", [])):
+        ident = row.get("id")
+        if ident and ident not in seen:
+            seen.add(ident)
+            dispatches.append(row)
     write_evidence(dispatches, RESULTS_DIR, args.evidence)
     print()
     print(f"validation json -> {json_path}")
@@ -271,7 +278,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--nodes", type=int)
     p.add_argument("--threshold", type=float,
                    help="override the action level in ug/m3 (default: NAAQS 24h)")
-    p.add_argument("--evidence", type=int, default=10,
+    p.add_argument("--evidence", type=int, default=25,
                    help="how many dispatches to write evidence packs for")
     p.set_defaults(func=_cmd_run)
 
