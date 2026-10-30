@@ -3,122 +3,358 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="SETU operator console: source-attributed, evidence-graded air quality triggers for Rajkot, Gujarat. Read-only decision support over a completed validation run.">
 <title>SETU — operator console</title>
-<!-- ?v=2 busts the copy browsers cached before the server sent
+<!-- ?v=3 busts the copy browsers cached before the server sent
      Cache-Control: no-store. Bump it if a stale console ever reappears. -->
-<link rel="stylesheet" href="/static/styles.css?v=2">
+<link rel="stylesheet" href="/static/styles.css?v=3">
 </head>
 <body>
-<header>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
   <div class="brand">
     <span class="mark">SETU</span>
     <span class="sub">source-attributed, evidence-graded trigger for urban air</span>
   </div>
   <div class="head-right">
+    <span id="run-chip" class="chip" aria-live="polite">loading run…</span>
     <span id="site-label" class="chip">loading…</span>
-    <span id="clock" class="chip muted"></span>
+    <span id="clock" class="chip muted mono"></span>
+    <a class="chip link" href="/docs" target="_blank" rel="noopener">API docs</a>
   </div>
 </header>
 
-<div class="banner" id="provenance-banner">
+<div class="banner" id="provenance-banner" role="note">
   Readings on this screen come from a <strong>digital twin</strong> seeded with
-  real hourly CAMS air quality and meteorology for the selected site. The
-  hardware does not exist yet. Concentrations are simulated; the algorithms
-  scoring them are the ones being validated.
+  real hourly CAMS air quality and meteorology for Rajkot. The hardware does not
+  exist yet. Concentrations are simulated; the algorithms scoring them are the
+  ones being validated. No reading here is a live sensor observation.
 </div>
 
-<main>
-  <section class="tiles" id="tiles">
-    <article class="tile">
-      <h2>What</h2>
-      <p class="big" id="t-what">—</p>
-      <p class="note" id="t-what-note"></p>
-    </article>
-    <article class="tile">
-      <h2>Where</h2>
-      <p class="big" id="t-where">—</p>
-      <p class="note" id="t-where-note"></p>
-    </article>
-    <article class="tile">
-      <h2>Which source</h2>
-      <p class="big" id="t-source">—</p>
-      <p class="note" id="t-source-note"></p>
-    </article>
-    <article class="tile">
-      <h2>What was done, did it work</h2>
-      <p class="big" id="t-action">—</p>
-      <p class="note" id="t-action-note"></p>
-    </article>
-  </section>
+<div class="strip" id="status-strip" role="status" aria-live="polite" hidden></div>
 
-  <section class="grid-two">
-    <div class="panel">
-      <div class="panel-head">
-        <h3>Node lattice</h3>
-        <span class="legend">
-          <i class="dot ok"></i> reporting
-          <i class="dot warn"></i> drifting
-          <i class="dot bad"></i> quarantined
-          <i class="dot out"></i> held out
-        </span>
-      </div>
-      <svg id="lattice" viewBox="0 0 400 400" role="img"
-           aria-label="Map of the monitored node lattice"></svg>
-      <p class="foot" id="lattice-foot"></p>
+<nav class="tabs" role="tablist" aria-label="Console sections">
+  <button class="tab" id="tab-overview" role="tab" aria-selected="true"
+          aria-controls="panel-overview" data-panel="overview">Overview</button>
+  <button class="tab" id="tab-queue" role="tab" aria-selected="false"
+          aria-controls="panel-queue" data-panel="queue" tabindex="-1">Queue</button>
+  <button class="tab" id="tab-ledger" role="tab" aria-selected="false"
+          aria-controls="panel-ledger" data-panel="ledger" tabindex="-1">Gates</button>
+  <button class="tab" id="tab-forecast" role="tab" aria-selected="false"
+          aria-controls="panel-forecast" data-panel="forecast" tabindex="-1">Forecast</button>
+  <button class="tab" id="tab-evidence" role="tab" aria-selected="false"
+          aria-controls="panel-evidence" data-panel="evidence" tabindex="-1">Evidence</button>
+  <button class="tab" id="tab-data" role="tab" aria-selected="false"
+          aria-controls="panel-data" data-panel="data" tabindex="-1">Data</button>
+</nav>
+
+<main id="main">
+
+  <!-- ---------------------------------------------------------- overview -->
+  <section class="panel-set" id="panel-overview" role="tabpanel"
+           aria-labelledby="tab-overview" tabindex="0">
+    <div class="tiles" id="tiles">
+      <article class="tile" id="tile-what">
+        <h2>What</h2>
+        <p class="big" id="t-what"><span class="skeleton sk-line"></span></p>
+        <p class="note" id="t-what-note"></p>
+      </article>
+      <article class="tile">
+        <h2>Where</h2>
+        <p class="big" id="t-where"><span class="skeleton sk-line"></span></p>
+        <p class="note" id="t-where-note"></p>
+      </article>
+      <article class="tile">
+        <h2>Which source</h2>
+        <p class="big" id="t-source"><span class="skeleton sk-line"></span></p>
+        <p class="note" id="t-source-note"></p>
+      </article>
+      <article class="tile">
+        <h2>What was done, did it work</h2>
+        <p class="big" id="t-action"><span class="skeleton sk-line"></span></p>
+        <p class="note" id="t-action-note"></p>
+      </article>
     </div>
 
+    <div class="grid-two">
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Node lattice</h3>
+          <span class="legend">
+            <i class="dot ok"></i>reporting
+            <i class="dot warn"></i>drifting
+            <i class="dot bad"></i>quarantined
+            <i class="dot out"></i>held out
+          </span>
+        </div>
+        <svg id="lattice" viewBox="0 0 400 400" role="img"
+             aria-label="Map of the monitored node lattice, 40 instrumented nodes and 9 held out"></svg>
+        <p class="foot" id="lattice-foot"></p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Validation, including what failed</h3>
+          <span class="muted" id="window-label"></span>
+        </div>
+        <table class="tbl" id="validation">
+          <caption class="visually-hidden">Run-wide validation metrics against their targets</caption>
+          <tbody></tbody>
+        </table>
+        <p class="foot" id="shares-foot"></p>
+      </div>
+    </div>
+
+    <div class="grid-two">
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Where the duty list stands</h3>
+          <span class="muted" id="triage-label"></span>
+        </div>
+        <div id="triage" class="triage">
+          <span class="skeleton sk-block"></span>
+        </div>
+        <p class="foot">
+          The head of the queue by expected effect, not by arrival. Fleet
+          capacity is not modelled: this is an ordering, not a schedule.
+        </p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Does triggering beat a fixed roster, at equal cost?</h3>
+          <span class="muted">same number of passes, placed differently</span>
+        </div>
+        <div id="equal-cost" class="bars"></div>
+        <p class="foot">
+          The suppressant row is the honest one. A lever that lasts a day does not
+          care where you put it, so triggering earns nothing there. The case for
+          SETU is conditional on a short-lived lever acting on an episodic source.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------- queue -->
+  <section class="panel-set" id="panel-queue" role="tabpanel"
+           aria-labelledby="tab-queue" tabindex="0" hidden>
     <div class="panel">
       <div class="panel-head">
         <h3>Dispatch queue</h3>
-        <span class="muted" id="dispatch-count"></span>
+        <span class="muted" id="queue-count">loading…</span>
       </div>
-      <ul class="feed" id="actions"></ul>
+      <div class="filters" role="group" aria-label="Queue filters">
+        <label class="field">
+          <span>Owner</span>
+          <select id="queue-owner"><option value="">All desks</option></select>
+        </label>
+        <label class="field">
+          <span>Lever</span>
+          <select id="queue-lever"><option value="">All levers</option></select>
+        </label>
+        <label class="field">
+          <span>Minimum priority</span>
+          <input id="queue-min" type="number" min="0" step="0.01" placeholder="0.00" inputmode="decimal">
+        </label>
+        <div class="field">
+          <span>Order</span>
+          <div class="segmented" role="group" aria-label="Queue ordering">
+            <button id="order-priority" class="seg on" aria-pressed="true">Expected effect</button>
+            <button id="order-time" class="seg" aria-pressed="false">Time</button>
+          </div>
+        </div>
+        <button class="btn ghost" id="queue-reset">Reset</button>
+      </div>
+      <div class="scroll-x">
+        <table class="tbl queue" id="queue">
+          <caption class="visually-hidden">Dispatches ordered by expected effect</caption>
+          <thead>
+            <tr>
+              <th scope="col" class="num">#</th>
+              <th scope="col">Node</th>
+              <th scope="col">Lever</th>
+              <th scope="col">Owner</th>
+              <th scope="col">Priority</th>
+              <th scope="col" class="num">Trigger</th>
+              <th scope="col">Window</th>
+              <th scope="col">State</th>
+              <th scope="col"><span class="visually-hidden">Evidence</span></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="queue-empty" class="empty" hidden></div>
+      <p class="foot" id="queue-foot"></p>
     </div>
   </section>
 
-  <section class="grid-two">
+  <!-- ------------------------------------------------------------ ledger -->
+  <section class="panel-set" id="panel-ledger" role="tabpanel"
+           aria-labelledby="tab-ledger" tabindex="0" hidden>
     <div class="panel">
       <div class="panel-head">
         <h3>What the gates stopped</h3>
-        <span class="muted">a trigger that thrashes is worse than no actuator</span>
+        <span class="muted" id="ledger-count">loading…</span>
       </div>
-      <table class="tbl" id="ledger">
-        <thead><tr><th>Gate</th><th class="num">Count</th><th>Why it exists</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <div class="panel">
-      <div class="panel-head">
-        <h3>Validation, including what failed</h3>
-        <span class="muted" id="window-label"></span>
+      <p class="lede" id="ledger-lede"></p>
+      <div id="ledger-gates" class="gate-groups">
+        <span class="skeleton sk-block"></span>
       </div>
-      <table class="tbl" id="validation">
-        <tbody></tbody>
-      </table>
-      <p class="foot" id="shares-foot"></p>
+      <p class="foot" id="ledger-foot"></p>
     </div>
   </section>
 
-  <section class="panel">
-    <div class="panel-head">
-      <h3>Does triggering beat a fixed roster, at equal cost?</h3>
-      <span class="muted">same number of passes, placed differently</span>
+  <!-- ---------------------------------------------------------- forecast -->
+  <section class="panel-set" id="panel-forecast" role="tabpanel"
+           aria-labelledby="tab-forecast" tabindex="0" hidden>
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Skill against persistence, by horizon</h3>
+        <span class="muted">walk-forward refits · conformal band</span>
+      </div>
+      <p class="lede" id="forecast-claim"></p>
+      <figure class="chart">
+        <svg id="forecast-skill" viewBox="0 0 560 240" role="img"
+             aria-label="Forecast skill against persistence at one, three and six hours, pooled and per fold"></svg>
+        <figcaption id="forecast-skill-caption" class="foot"></figcaption>
+      </figure>
+      <div class="scroll-x">
+        <table class="tbl" id="forecast">
+          <caption class="visually-hidden">Forecast skill by horizon</caption>
+          <thead>
+            <tr>
+              <th scope="col">Horizon</th>
+              <th scope="col" class="num">Model RMSE</th>
+              <th scope="col" class="num">Persistence</th>
+              <th scope="col" class="num">Skill</th>
+              <th scope="col" class="num">Coverage</th>
+              <th scope="col" class="num">Band width</th>
+              <th scope="col" class="num">Bias</th>
+              <th scope="col" class="num">Nodes winning</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </div>
-    <div id="equal-cost" class="bars"></div>
-    <p class="foot">
-      The suppressant row is the honest one. A lever that lasts a day does not
-      care where you put it, so triggering earns nothing there. The case for
-      SETU is conditional on a short-lived lever acting on an episodic source.
-    </p>
+
+    <div class="grid-two">
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Interval coverage against nominal</h3>
+          <span class="muted" id="coverage-label"></span>
+        </div>
+        <figure class="chart">
+          <svg id="forecast-coverage" viewBox="0 0 480 200" role="img"
+               aria-label="Share of outcomes inside the conformal band at each horizon, against a nominal 0.80"></svg>
+          <figcaption class="foot">
+            A band that covers less than it claims makes the uncertainty gate
+            more permissive than advertised.
+          </figcaption>
+        </figure>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Fold by fold</h3>
+          <span class="muted">the pooled row can hide a fold</span>
+        </div>
+        <div class="scroll-x">
+          <table class="tbl" id="folds">
+            <caption class="visually-hidden">Forecast skill per walk-forward fold</caption>
+            <thead>
+              <tr>
+                <th scope="col">Fold</th>
+                <th scope="col">Horizon</th>
+                <th scope="col" class="num">Skill</th>
+                <th scope="col" class="num">Coverage</th>
+                <th scope="col" class="num">n</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="foot" id="diagnostics"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------- evidence -->
+  <section class="panel-set" id="panel-evidence" role="tabpanel"
+           aria-labelledby="tab-evidence" tabindex="0" hidden>
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Evidence packs</h3>
+        <span class="muted" id="evidence-count">loading…</span>
+      </div>
+      <p class="lede">
+        One JSON record per dispatch, written by the run that produced it. A pack
+        is what an officer would attach to a notice: the posterior, the coarse
+        fraction, the lever and its citation, the trigger and its interval.
+        Nothing on this screen dispatches a crew.
+      </p>
+      <div class="scroll-x">
+        <table class="tbl" id="evidence">
+          <caption class="visually-hidden">Evidence packs published with this run</caption>
+          <thead>
+            <tr>
+              <th scope="col">Pack</th>
+              <th scope="col">Node</th>
+              <th scope="col">Lever</th>
+              <th scope="col" class="num">Priority</th>
+              <th scope="col">Dispatched</th>
+              <th scope="col">Source</th>
+              <th scope="col"></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="evidence-empty" class="empty" hidden></div>
+    </div>
+  </section>
+
+  <!-- -------------------------------------------------------------- data -->
+  <section class="panel-set" id="panel-data" role="tabpanel"
+           aria-labelledby="tab-data" tabindex="0" hidden>
+    <div class="grid-two">
+      <div class="panel">
+        <div class="panel-head"><h3>The window this run read</h3></div>
+        <dl class="facts" id="quality-facts"></dl>
+        <p class="foot" id="quality-notes"></p>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Provenance and cache</h3></div>
+        <div id="provenance-sources" class="sources"></div>
+        <dl class="facts" id="cache-facts"></dl>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h3>What this run cannot support</h3>
+        <span class="muted">read before quoting a number</span>
+      </div>
+      <ul class="limits" id="limits"></ul>
+    </div>
   </section>
 </main>
 
 <footer>
-  <span>SETU · Open-source research project · Rajkot, Gujarat</span>
-  <span class="muted">no API keys · real background from Open-Meteo CAMS + IFS</span>
+  <span>SETU · open-source research project · Rajkot, Gujarat</span>
+  <span class="muted">read-only console · digital twin · no API keys</span>
 </footer>
 
-<script src="/static/app.js?v=2"></script>
+<dialog id="pack-dialog" aria-labelledby="pack-title">
+  <div class="dialog-head">
+    <h2 id="pack-title">Evidence pack</h2>
+    <button class="btn ghost" id="pack-close" aria-label="Close evidence pack">Close</button>
+  </div>
+  <div id="pack-body" class="dialog-body"></div>
+</dialog>
+
+<script src="/static/app.js?v=3" defer></script>
 </body>
 </html>
