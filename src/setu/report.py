@@ -55,7 +55,8 @@ def calibration_summary(rows: list[dict]) -> dict:
     """Run-wide means, which is what the console's validation panel is claiming
     to show. Averaging one node's row and labelling it "Calibration MAE" was a
     real defect: node rajkot-00 scores 14.70 -> 0.28 ug/m3 while the 40-node mean
-    is 9.85 -> 1.82, so the screen read far better than the report beside it."""
+    was 9.85 -> 1.82 at that time, so the screen read far better than the report
+    beside it."""
     keys = ("mae", "rmse", "nmae", "r2", "bias", "threshold_accuracy")
     out = {"nodes": len(rows)}
     for key in keys:
@@ -120,9 +121,14 @@ def _jsonable(obj):
     return obj
 
 
-def to_json(result, directory: Path = RESULTS_DIR) -> Path:
-    directory.mkdir(parents=True, exist_ok=True)
-    payload = {
+def payload(result) -> dict:
+    """The machine-readable run, built once and used twice.
+
+    `to_json` writes it and the replay check compares a fresh run against the
+    committed copy of it. One builder means a field added to the payload cannot
+    be missing from the comparison that is supposed to guard it.
+    """
+    return {
         "summary": result.summary,
         "provenance": result.provenance,
         "calibration": result.calibration,
@@ -136,8 +142,12 @@ def to_json(result, directory: Path = RESULTS_DIR) -> Path:
         "shares": result.shares,
         "equal_cost": result.equal_cost,
     }
+
+
+def to_json(result, directory: Path = RESULTS_DIR) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
     path = directory / "validation.json"
-    path.write_text(json.dumps(_jsonable(payload), indent=2, default=str),
+    path.write_text(json.dumps(_jsonable(payload(result)), indent=2, default=str),
                     encoding="utf-8")
     return path
 

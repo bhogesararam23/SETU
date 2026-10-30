@@ -98,11 +98,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Replay from snapshot
+      - name: Replay from snapshot and compare
         env:
           PYTHONPATH: src
           SETU_CACHE_DIR: data/fixtures/upstream
           SETU_OFFLINE: 1
         run: |
-          # This should reproduce the committed results exactly
-          python -m setu run --days 92 --threshold 15
+          # A run that merely finishes proves nothing did crash. `verify`
+          # compares the fresh payload against results/validation.json and
+          # fails on a moved count, a moved digest, or a metric outside its
+          # stated tolerance. The action level is read from the payload.
+          python -m setu verify --days 92

@@ -239,6 +239,41 @@ def _cmd_config(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_verify(args: argparse.Namespace) -> int:
+    """Replay the committed run and check that it lands on the same numbers.
+
+    A CI job that runs the pipeline only proves it did not crash. This proves
+    the answer did not move, which is the property a reader of `results/` is
+    relying on.
+    """
+    from .reproduce import compare, format_value, load_committed, summarise
+    from .report import payload
+
+    path = Path(args.against)
+    if not path.exists():
+        print(f"error: no committed payload at {path}", file=sys.stderr)
+        return 2
+    committed = load_committed(path)
+    threshold = (args.threshold if args.threshold is not None
+                 else float(committed["summary"]["threshold_ugm3"]))
+    print(f"[setu] replaying {args.days} days at {threshold:g} ug/m3 and "
+          f"comparing against {path}")
+    result = run_pipeline(args.site, past_days=args.days,
+                          node_limit=args.nodes, verbose=args.verbose,
+                          threshold=threshold)
+    checks = compare(committed, payload(result))
+    width = max(len(check.name) for check in checks)
+    for check in checks:
+        mark = "ok  " if check.ok else "FAIL"
+        print(f"  {mark} {check.name:<{width}}  committed "
+              f"{format_value(check.committed, check.tolerance):>22}  fresh "
+              f"{format_value(check.fresh, check.tolerance):>22}"
+              + (f"  ({check.detail})" if check.detail else ""))
+    print()
+    print(summarise(checks))
+    return 0 if all(check.ok for check in checks) else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="setu",
@@ -291,6 +326,20 @@ def build_parser() -> argparse.ArgumentParser:
                         "monsoon window Rajkot never approaches the latter, so "
                         "the response layer would legitimately do nothing")
     p.set_defaults(func=_cmd_check)
+
+    p = sub.add_parser(
+        "verify", help="replay the committed run and check the numbers match")
+    p.add_argument("--days", type=int, default=92)
+    p.add_argument("--nodes", type=int)
+    p.add_argument("--threshold", type=float,
+                   help="action level in ug/m3. Defaults to the level the "
+                        "committed payload was produced at, not to 60: replaying "
+                        "a 15 ug/m3 run at the NAAQS limit would compare two "
+                        "different experiments and call the difference drift")
+    p.add_argument("--against", default=str(RESULTS_DIR / "validation.json"),
+                   help="the committed payload to compare against")
+    p.add_argument("--verbose", action="store_true")
+    p.set_defaults(func=_cmd_verify)
 
     p = sub.add_parser("serve", help="run the operator API and dashboard")
     p.add_argument("--host", default="127.0.0.1")

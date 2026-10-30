@@ -136,6 +136,7 @@ export PYTHONPATH=src    # or pip install -e .
 pytest                       # full offline test suite
 python -m setu check         # fast end-to-end run, headline numbers to stdout
 python -m setu run           # full run, writes results/VALIDATION.md + .json
+python -m setu verify        # replay the committed run and compare every quoted number
 python -m setu serve         # operator console on http://127.0.0.1:8090
 python -m setu probe-upstream  # which data sources are reachable from here
 python -m setu bom           # lever table, gates, and the do-not-build list
@@ -158,6 +159,13 @@ is a real finding about a clean season, and it is reported as such.
 `data/fixtures/upstream/` is a committed snapshot of the real Open-Meteo
 responses used by the reproducible validation run. It allows the full pipeline
 to be re-run without credentials or network access.
+
+`python -m setu verify` runs the same replay and then *checks* it: the fresh
+payload is compared field by field with `results/validation.json` - input
+fingerprint, window, counts and gate totals exactly, measured quantities within
+a stated tolerance - and exits non-zero if a quoted number moved. That is the
+job the CI replay runs, so "the results reproduce" is enforced rather than
+remembered.
 
 ## The operator console
 

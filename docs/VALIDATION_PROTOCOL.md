@@ -40,7 +40,7 @@ it, the baseline it is scored against, and the pass rule agreed before running.
 | **Baseline** | The node's own raw readings (identity map). |
 | **Pass rule** | MAE must fall, and the fall must land inside the published range for the method family; otherwise the split or the features are wrong. |
 | **Published anchor** | Bush et al., *AMT* 15:3261, 2022 — 37–94% MAE reduction for co-located low-cost calibration, R² up to 0.91. |
-| **Result** | 9.85 → 1.82 µg/m³, −81.5%, inside the range. R² −1.56 → 0.76. |
+| **Result** | 10.41 → 3.21 µg/m³, −69.1%, inside the range. R² −1.06 → 0.59. |
 | **Could have failed** | Yes. Scoring the window the model was fitted on produces an in-sample number that means nothing; the 60/40 chronological split is what forces 0.76. A leak of exactly that kind was found and fixed in the attribution features (a centred rolling median was reading the future), and `tests/test_attribute.py` now asserts NaNs appear only in the leading warm-up. |
 
 ### Uncertainty
@@ -72,7 +72,7 @@ it, the baseline it is scored against, and the pass rule agreed before running.
 | **Test** | 5-class posterior over 22,720 node-hours, scored against the twin's injected-mode argmax. Chance level 0.200. |
 | **Baselines** | Chance (0.200); prior-only (the published share vector); a fixed coarse/ultrafine threshold rule, which is what the current literature actually does. |
 | **Pass rule** | Accuracy materially above chance **and** coefficient signs matching the published size signatures. Both are required: above-chance accuracy with anti-physics signs would be a shortcut, not a classifier. |
-| **Result** | 0.789 accuracy; 0.820 above a 0.60 posterior on 90.4% of hours; log loss 0.4868; signs match. |
+| **Result** | 0.600 accuracy against 0.20 chance; 0.838 above a 0.60 posterior on 66.8% of hours; log loss 1.7935; signs match (coarse count ratio +1.257 on dust, −0.803 on burning). |
 | **Honest caveat** | The labels come from the generator (§7). This is a proof that the features carry source information, not that they identify real-world sources. |
 
 ### Forecast
@@ -157,21 +157,23 @@ The build runs offline against `data/fixtures/upstream` — no keys, no accounts
 4. the engine dispatches nothing (engine unwired) or suppresses nothing (gates unwired);
 5. suppression reasons do not sum to the suppression count;
 6. any forecast horizon loses to persistence;
-7. the committed report header disagrees with the committed JSON.
+7. the committed report header disagrees with the committed JSON;
+8. a replay from the snapshot moves any committed number outside its stated
+   tolerance (`python -m setu verify`).
 
 The gates assert *relationships*, not exact numbers: BLAS and scikit-learn
-releases move the third decimal, and a build that fails on 1.82 → 1.83 teaches
-nobody anything.
+releases move the third decimal, and a build that fails on 3.21 → 3.22 teaches
+nobody anything. The replay gate is the exception where it can be: counts and
+the input fingerprint must match exactly, and measured quantities carry a small
+per-field tolerance rather than a blanket one.
 
-**Status of the workflow itself.** GitHub refuses to accept a push that adds
-`.github/workflows/` unless the push credential carries the `workflow` scope,
-and the credential used for this repository does not. So the three jobs above
-are written and held locally on the branch `add-ci-workflow`, not yet active on
-`main`. What has been verified is the substance: the gate script was executed by
-hand against the committed output and passes, and the offline end-to-end run was
-executed by hand from the committed snapshot. As soon as the scope is granted the
-workflow lands as a forward commit and the build starts running these same
-checks on every push.
+**Status of the workflow itself.** The workflow is active on `main` and on
+`milestone-*/**` branches; the three jobs above run on every push and on pull
+requests. The replay job no longer just re-runs the pipeline - it compares the
+fresh payload against `results/validation.json` and fails on a moved count, a
+moved digest, or a metric outside its tolerance. An earlier version of this
+section said the workflow could not be pushed for want of the `workflow` scope;
+that was true when it was written and is not true now.
 
 ---
 
@@ -193,13 +195,31 @@ but it is not the configuration the headline numbers come from, so it is named.
 `setu check` (45 days × 8 nodes) runs in about 25 s from the snapshot; the full
 40-node run takes a few minutes. Neither touches the network.
 
-Verification performed on the committed output: re-running from the snapshot
-reproduced every number byte-identically — 1,772 hours, 40 nodes, MAE
-9.85 → 1.82, attribution 0.789. The response counts did move, and correctly:
-a `len(rows) > 4000` guard meant to bound the displayed sample was sitting
-inside the engine loop, so the run had been scoring roughly three nodes and
-reporting them as forty. Processing every node-hour gives 14,224 dispatches
-and 56,656 suppressions. Nothing else in the report changed.
+The same replay is a check rather than a claim:
+
+```bash
+PYTHONPATH=src SETU_CACHE_DIR=data/fixtures/upstream SETU_OFFLINE=1 \
+  python -m setu verify --days 92
+```
+
+`setu verify` reads the action level out of the committed payload (rather than
+defaulting to 60 µg/m³ and comparing two different experiments), re-runs the
+pipeline, and puts the fresh payload beside the committed one field by field:
+the input fingerprint, the window and node count, dispatches, suppressions and
+their gate totals, the queue head, mean calibration MAE, attribution accuracy,
+and forecast skill at 1 h and 6 h. Counts and the digest are exact; measured
+quantities have a stated tolerance, because a library upgrade moves the last
+decimal without anything being wrong. A field the committed payload predates is
+reported as skipped rather than silently passed.
+
+The current committed output reproduces on all 12 comparable checks: 1,772
+hours, 40 nodes, MAE 10.41 → 3.21, attribution 0.600, 8,047 dispatches and
+62,833 suppressions. The counts reported here moved twice during development and
+both moves were real: a `len(rows) > 4000` guard meant to bound the *displayed*
+sample was sitting inside the engine loop, so the run scored roughly three nodes
+and reported them as forty; and the sample spread that replaced it changed what
+the console showed without changing the totals. That is why the guard on this
+section is a comparison and not a remembered figure.
 
 ---
 
@@ -236,7 +256,7 @@ Reported because they are the part a reviewer trusts most.
    `readBme()` and `readWind()` are documented stubs; `client.setInsecure()` is
    an unresolved TODO.
 6. **Evaluated against our own generator** for attribution — see §2.
-7. **The engine dispatches 4.8 times per zone per day.** 14,224 dispatches over 40 zones and 74 days. The dwell gate is the only thing limiting re-dosing, and a ward sanitation supervisor receiving five work orders a day for the same stretch of road is a plausible failure mode that this prototype cannot test without a real roster.
+7. **The engine dispatches 2.7 times per zone per day.** 8,047 dispatches over 40 zones and 74 days. The dwell gate is the only thing limiting re-dosing, and a ward sanitation supervisor receiving three work orders a day for the same stretch of road is a plausible failure mode that this prototype cannot test without a real roster. At 15 µg/m³ the trigger is being asked to act on a level most of the window exceeds, which is why milestone 5's finding matters: without a forecast that beats persistence, the queue is reacting to now.
 8. **`instrumented_nodes: 40` is an engineering choice, not a permit.** A 320 m
    lattice over 4 km² is what the BOM and the deployment story support; no
    municipal permission has been sought.

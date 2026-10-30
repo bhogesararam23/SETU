@@ -229,12 +229,21 @@ shrug. The console could not answer "which gate is costing me the trigger" or
 **Goal:** Fully reproducible results with strong validation
 
 #### Tasks:
-- [ ] Add reproducibility checks
-- [ ] Implement result validation framework
-- [ ] Add comparison with published literature
-- [ ] Implement cross-validation framework
+- [x] Add reproducibility checks - `setu verify` re-runs the pipeline from the
+      committed snapshot and compares the fresh payload against
+      `results/validation.json` field by field: fingerprint and counts exact,
+      measured quantities inside a stated tolerance, a field the payload
+      predates reported as skipped rather than passed. The CI replay job now
+      runs this instead of a bare `setu run`, which only proved nothing crashed
+- [ ] Implement result validation framework - the gates in `setu check` and the
+      API schemas cover part of this; a general one does not exist
+- [ ] Add comparison with published literature - effect sizes are cited, model
+      skill is not compared band by band to the papers it quotes
+- [ ] Implement cross-validation framework - walk-forward refits exist for the
+      forecast; calibration is still a single 60/40 split
 - [ ] Add sensitivity analysis
-- [ ] Document reproducibility procedures
+- [x] Document reproducibility procedures - `docs/VALIDATION_PROTOCOL.md` §5
+      states the command, what is compared, and what the current run produces
 
 ---
 
@@ -246,8 +255,8 @@ shrug. The console could not answer "which gate is costing me the trigger" or
 - The operator console, its typed API, and the queue/ledger payloads behind it
 
 ### Next
-1. Coverage tracking and a documented build (milestone 10)
-2. Reproducibility checks and sensitivity analysis (milestone 12)
+1. Sensitivity analysis on the threshold and the lever half-life (milestone 12)
+2. Coverage tracking and a documented build (milestone 10)
 3. Firmware completion (milestone 9) - blocked on hardware that does not exist
 4. Documentation sweep across all five docs (milestone 11)
 
@@ -293,14 +302,15 @@ Before accepting a commit:
 | 6 Response | done |
 | 7 Data pipeline | done, except CPCB reachability, which is a network fact rather than a code gap |
 | 8 Operator console | done, except authentication, which is a deployment requirement rather than a prototype one |
-| 9-12 | not started |
+| 12 Reproducibility | partial - the replay gate enforces the committed numbers; sensitivity analysis and a literature comparison remain |
+| 9-11 | not started |
 
 ## Next Steps
 
 Milestone 9 (firmware) is blocked on hardware that does not exist: sensor
 integration, certificate pinning and OTA all need a flashed board to be more
 than source code, so its honest state is "written, untested" and no amount of
-work in this repository changes that. What is verifiable here is milestone 10's
-remaining CI work - coverage reporting and a documented build - and milestone
-12's reproducibility checks, which compare a fresh run against the committed
-payload. Those come next.
+work in this repository changes that. The replay gate closed the first task of
+milestone 12; what remains verifiable here is sensitivity analysis (which lever
+and which threshold the response result actually depends on), coverage reporting
+in CI, and the calibration cross-validation that milestone 3 left open.
