@@ -1,8 +1,12 @@
 name: CI
 
 on:
+  # `milestone-*/**` is here because a branch that is never pushed is a branch
+  # that is never tested: milestone work landed on a branch, the push matched
+  # nothing, and the only run it could have had was after it was already on
+  # main. Pull requests still get their own run.
   push:
-    branches: [main, vibe/**]
+    branches: [main, vibe/**, "milestone-*/**"]
   pull_request:
     branches: [main]
 
